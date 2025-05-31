@@ -37,7 +37,7 @@ export function StarRating({
             className={cn(
               size, // Assuming 'size' is a prop
               isFilled ? "text-yellow-400" : "text-gray-300",
-              !readOnly && "cursor-pointer hover:text-yellow-300"
+              !readOnly ? "cursor-pointer hover:text-yellow-300" : ""
             )}
             fill={isFilled ? "currentColor" : "none"}
             onClick={() => !readOnly && onRate?.(starValue)}

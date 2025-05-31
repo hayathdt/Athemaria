@@ -108,7 +108,7 @@ export default function StoryList({
                   variant="outline"
                   className="border-amber-200/50 dark:border-amber-800/50 text-amber-700 dark:text-amber-300"
                 >
-                  {story.genre}
+                  {story.genres?.join(', ') || 'No genre'}
                 </Badge>
                 <span className="text-xs text-amber-600/60 dark:text-amber-400/60">
                   {formatDate(story.createdAt)}
