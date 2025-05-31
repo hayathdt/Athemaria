@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import ContinueReadingCard from '@/components/cards/continue-reading-card';
+import ContinueReadingCarousel from '@/components/ui/continue-reading-carousel';
 import BookRecommendationCard from '@/components/cards/book-recommendation-card';
+import PageHeader from '@/components/layout/page-header';
 import { getStories } from '@/lib/firebase/firestore';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { Story } from '@/lib/types';
 
 const HomePage: React.FC = () => {
   const [stories, setStories] = useState<Story[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const fetchStories = async () => {
@@ -39,22 +42,11 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Home</h1>
-        {/* Removed "Today's Read" section as per user request */}
-      </header>
+      <PageHeader title="Home" />
 
       <section className="mb-10">
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Continue Reading</h2>
-        {continueReadingStories.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {continueReadingStories.map((story) => (
-              <ContinueReadingCard key={story.id} story={story} />
-            ))}
-          </div>
-        ) : (
-          <p>No recent stories to continue.</p>
-        )}
+        <ContinueReadingCarousel stories={continueReadingStories} isMobile={isMobile} />
       </section>
 
       <section>

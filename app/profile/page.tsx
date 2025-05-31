@@ -16,6 +16,7 @@ import AuthCheck from "@/components/auth-check";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"; // Import Tabs components
 import UserStoryCard from "@/components/cards/user-story-card"; // Import UserStoryCard
+import PageHeader from "@/components/layout/page-header";
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -154,7 +155,9 @@ export default function ProfilePage() {
 
   return (
     <AuthCheck>
-      <div className="container mx-auto px-4 py-6 max-w-2xl font-sans">
+      <div className="max-w-7xl mx-auto">
+        <PageHeader title="Profile" />
+        <div className="container mx-auto px-4 py-6 max-w-2xl font-sans">
         <div className="rounded-3xl bg-slate-50 dark:bg-gray-900/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-800/50 shadow-md">
           <div className="bg-gradient-to-r from-blue-100 to-purple-200 rounded-t-3xl p-6 pt-16 pb-12">
             <div className="absolute top-6 right-6">
@@ -368,6 +371,7 @@ export default function ProfilePage() {
             </Tabs>
           </div>
         </div>
+      </div>
       </div>
     </AuthCheck>
   );

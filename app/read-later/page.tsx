@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Sidebar from '@/components/layout/sidebar';
 import BookRecommendationCard from '@/components/cards/book-recommendation-card';
+import PageHeader from '@/components/layout/page-header';
 import { getReadLaterStories } from '@/lib/firebase/firestore';
 import { useAuth } from '@/lib/auth-context';
 import type { Story } from '@/lib/types';
@@ -76,18 +76,12 @@ const ReadLaterPage: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-      <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Read Later</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-            Stories you've saved to read later
-          </p>
-        </header>
-
-        {renderContent()}
-      </main>
+    <div className="max-w-7xl mx-auto">
+      <PageHeader
+        title="Read Later"
+        description="Stories you've saved to read later"
+      />
+      {renderContent()}
     </div>
   );
 };
