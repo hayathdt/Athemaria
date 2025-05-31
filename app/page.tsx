@@ -49,11 +49,7 @@ const HomePage: React.FC = () => {
       <main className="flex-1 p-8 overflow-y-auto">
         <header className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Home</h1>
-          <p className="text-sm text-blue-600 dark:text-blue-400 mb-8">
-            <span className="material-icons text-lg mr-1 align-text-bottom">play_circle_filled</span>
-            Today's Read
-            <span className="text-gray-500 dark:text-gray-400 ml-2">3 minutes left</span>
-          </p>
+          {/* Removed "Today's Read" section as per user request */}
         </header>
 
         <section className="mb-10">
