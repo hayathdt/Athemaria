@@ -20,7 +20,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         
         {/* Main Content Area */}
         <main className={`flex-1 transition-all duration-300 ease-in-out ${
-          isOpen ? 'ml-0 md:ml-64' : 'ml-0 md:ml-16'
+          isOpen ? 'md:ml-64' : 'md:ml-16'
         }`}>
           {/* Background decorative elements */}
           <div

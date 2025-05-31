@@ -69,10 +69,10 @@ const Sidebar: React.FC = () => {
       {isMobile && !isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg md:hidden"
+          className="fixed top-4 left-4 z-50 p-2 bg-transparent md:hidden"
           aria-label="Open sidebar"
         >
-          <Menu className="h-6 w-6 text-gray-700 dark:text-gray-300" />
+          <Menu className="h-6 w-6 text-gray-900 dark:text-white drop-shadow-sm" />
         </button>
       )}
 

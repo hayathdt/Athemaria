@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import ContinueReadingCard from '@/components/cards/continue-reading-card';
 import BookRecommendationCard from '@/components/cards/book-recommendation-card';
+import PageHeader from '@/components/layout/page-header';
 import { getStories } from '@/lib/firebase/firestore';
 import type { Story } from '@/lib/types';
 
@@ -39,10 +40,7 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Home</h1>
-        {/* Removed "Today's Read" section as per user request */}
-      </header>
+      <PageHeader title="Home" />
 
       <section className="mb-10">
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Continue Reading</h2>
