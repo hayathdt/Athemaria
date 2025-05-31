@@ -9,10 +9,12 @@ import { useDefaultCover } from '@/lib/hooks/use-default-cover';
 
 interface ContinueReadingCardProps {
   story: Story;
+  isMobile?: boolean;
 }
 
 const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
   story,
+  isMobile = false,
 }) => {
   const { user } = useAuth();
   const { defaultCoverUrl } = useDefaultCover();
@@ -50,12 +52,12 @@ const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
   return (
     <div className="relative group">
       <Link href={`/story/${story.id}`}>
-        <div className="block hover:no-underline focus:outline-none focus:ring-2 focus:ring-amber-500 rounded-lg transition-shadow hover:shadow-xl bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center h-full">
-          <div className="relative mr-4">
+        <div className={`block hover:no-underline focus:outline-none focus:ring-2 focus:ring-amber-500 rounded-lg transition-shadow hover:shadow-xl bg-white dark:bg-gray-800 ${isMobile ? 'p-3' : 'p-4'} rounded-lg shadow-md flex items-center h-full`}>
+          <div className={`relative ${isMobile ? 'mr-3' : 'mr-4'}`}>
             <img
               src={story.coverImage || defaultCoverUrl}
               alt={`Cover for ${story.title}`}
-              className="w-24 h-36 object-cover rounded-lg"
+              className={`${isMobile ? 'w-16 h-24' : 'w-24 h-36'} object-cover rounded-lg`}
               onError={(e) => {
                 e.currentTarget.src = defaultCoverUrl;
               }}
@@ -74,12 +76,12 @@ const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
             )}
           </div>
           <div className="flex-grow">
-            <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-200">{story.title}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{story.authorName}</p>
+            <h3 className={`font-semibold ${isMobile ? 'text-base' : 'text-lg'} text-gray-900 dark:text-gray-200`}>{story.title}</h3>
+            <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600 dark:text-gray-400 mb-1`}>{story.authorName}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Story</p>
-            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+            <div className={`w-full bg-gray-200 dark:bg-gray-600 rounded-full ${isMobile ? 'h-2' : 'h-2.5'}`}>
               <div
-                className="bg-blue-500 dark:bg-blue-400 h-2.5 rounded-full"
+                className={`bg-blue-500 dark:bg-blue-400 ${isMobile ? 'h-2' : 'h-2.5'} rounded-full`}
                 style={{ width: '0%' }}
               ></div>
             </div>
