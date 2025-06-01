@@ -19,7 +19,9 @@ export interface Story {
   createdAt: string;
   updatedAt: string;
   status: StoryStatus;
-  coverImage?: string; // Add this line
+  coverImage?: string;
+  deleted?: boolean;
+  deletedAt?: string;
 }
 
 export interface StoryInput {
@@ -52,6 +54,7 @@ export interface UserStory {
   imageUrl: string;
   commentCount: number;
   averageRating: number;
+  deletedAt?: string;
 }
 
 export interface SocialLinks {

@@ -221,25 +221,38 @@ export async function getCommentCountForStory(storyId: string): Promise<number> 
 
 export async function getUserStories(userId: string): Promise<UserStory[]> {
   try {
+    console.log(`[firestore.ts] getUserStories called with userId: ${userId}`);
     const storiesRef = collection(db, 'stories');
     const q = query(storiesRef, where('authorId', '==', userId));
     const snapshot = await getDocs(q);
     
+    console.log(`[firestore.ts] Found ${snapshot.size} stories for user ${userId}`);
+    
     const userStories: UserStory[] = [];
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data() as DocumentData;
-      console.log(`[firestore.ts] Story ID: ${docSnap.id}, coverImage: ${data.coverImage}`); // Add log
+      
+      console.log(`[firestore.ts] Processing story: ${docSnap.id}, title: ${data.title}, authorId: ${data.authorId}, deleted: ${data.deleted}`);
+      
+      // Filtrer côté client les histoires supprimées
+      if (data.deleted === true) {
+        console.log(`[firestore.ts] Skipping deleted story: ${docSnap.id}`);
+        continue;
+      }
+      
       const commentCount = await getCommentCountForStory(docSnap.id);
       const { average: averageRating } = await getAverageRating(docSnap.id);
 
       userStories.push({
         id: docSnap.id,
         title: data.title,
-        imageUrl: data.coverImage || "/assets/cover.png", // Use story's cover image or default
+        imageUrl: data.coverImage || "/assets/cover.png",
         commentCount: commentCount,
         averageRating: averageRating,
       });
     }
+    
+    console.log(`[firestore.ts] Returning ${userStories.length} user stories`);
     return userStories;
   } catch (error) {
     console.error("[firestore.ts] Error getting user stories:", error);
@@ -653,5 +666,93 @@ export async function isStoryInReadLater(userId: string, storyId: string): Promi
   } catch (error) {
     console.error("Error checking if story is in read later: ", error);
     return false;
+  }
+}
+
+export async function softDeleteStory(id: string): Promise<void> {
+  try {
+    const docRef = doc(db, "stories", id);
+    await updateDoc(docRef, {
+      deleted: true,
+      deletedAt: Timestamp.now().toMillis().toString()
+    });
+  } catch (error) {
+    console.error("Error soft-deleting story: ", error);
+    throw new Error("Failed to soft-delete story");
+  }
+}
+
+export async function restoreStory(id: string): Promise<void> {
+  try {
+    const docRef = doc(db, "stories", id);
+    await updateDoc(docRef, {
+      deleted: false,
+      deletedAt: null
+    });
+  } catch (error) {
+    console.error("Error restoring story: ", error);
+    throw new Error("Failed to restore story");
+  }
+}
+
+export async function getDeletedStories(userId: string): Promise<UserStory[]> {
+  try {
+    console.log(`[firestore.ts] getDeletedStories called with userId: ${userId}`);
+    const storiesRef = collection(db, 'stories');
+    const q = query(storiesRef, where('authorId', '==', userId));
+    
+    const snapshot = await getDocs(q);
+    const deletedStories: UserStory[] = [];
+    
+    console.log(`[firestore.ts] Found ${snapshot.size} total stories, filtering for deleted ones`);
+    
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data() as DocumentData;
+      
+      // Filtrer côté client pour les histoires supprimées
+      if (data.deleted !== true) {
+        continue;
+      }
+      
+      console.log(`[firestore.ts] Processing deleted story: ${docSnap.id}, title: ${data.title}`);
+      const commentCount = await getCommentCountForStory(docSnap.id);
+      const { average: averageRating } = await getAverageRating(docSnap.id);
+
+      deletedStories.push({
+        id: docSnap.id,
+        title: data.title,
+        imageUrl: data.coverImage || "/assets/cover.png",
+        commentCount: commentCount,
+        averageRating: averageRating,
+        deletedAt: data.deletedAt
+      });
+    }
+    
+    console.log(`[firestore.ts] Returning ${deletedStories.length} deleted stories`);
+    return deletedStories;
+  } catch (error) {
+    console.error("Error getting deleted stories:", error);
+    return [];
+  }
+}
+
+export async function purgeOldStories(): Promise<void> {
+  try {
+    const threshold = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const storiesRef = collection(db, 'stories');
+    const q = query(
+      storiesRef, 
+      where('deleted', '==', true),
+      where('deletedAt', '<', threshold.toString())
+    );
+    
+    const snapshot = await getDocs(q);
+    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    
+    console.log(`Purged ${snapshot.size} old stories`);
+  } catch (error) {
+    console.error("Error purging old stories:", error);
+    throw new Error("Failed to purge old stories");
   }
 }

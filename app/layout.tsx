@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { SidebarProvider } from "@/lib/sidebar-context";
 import { ThemeProvider } from "@/components/theme-provider";
 import MainLayout from "@/components/layout/main-layout";
+import { Toaster } from "@/components/ui/sonner";
 import { BookOpen } from "lucide-react";
 
 // Configure fonts
@@ -37,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`h-full ${lora.variable} ${inter.variable}`}>
+    <html lang="en" className={`h-full ${lora.variable} ${inter.variable}`} suppressHydrationWarning={true}>
       <head>
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       </head>
@@ -55,6 +56,7 @@ export default function RootLayout({
               </MainLayout>
             </SidebarProvider>
           </AuthProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
