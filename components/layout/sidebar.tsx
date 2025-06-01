@@ -4,14 +4,14 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { getUserProfile } from '@/lib/firebase/firestore'; // Importer getUserProfile
-import type { UserProfile } from '@/lib/types'; // Importer UserProfile
+import { getUserProfile, getUserNotifications, markNotificationAsRead, markAllUserNotificationsAsRead } from '@/lib/firebase/firestore'; // Importer getUserProfile et fonctions de notification
+import type { UserProfile, Notification } from '@/lib/types'; // Importer UserProfile et Notification
 import { useTheme } from 'next-themes';
 import { useSidebar } from '@/lib/sidebar-context';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Sun, Moon, X, Menu } from 'lucide-react';
+import { Sun, Moon, X, Menu, Bell } from 'lucide-react'; // Ajout de Bell
 
 interface NavItem {
   name: string;
@@ -34,6 +34,9 @@ const Sidebar: React.FC = () => {
   const isMobile = useIsMobile();
   const pathname = usePathname();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -48,6 +51,42 @@ const Sidebar: React.FC = () => {
     };
     fetchUserProfile();
   }, [user]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (user?.uid) {
+        const userNotifications = await getUserNotifications(user.uid);
+        setNotifications(userNotifications);
+        setUnreadCount(userNotifications.filter(n => !n.read).length);
+      } else {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    };
+    fetchNotifications();
+    // Optionnel: Mettre en place un listener pour les notifications en temps réel si nécessaire
+  }, [user]);
+
+  const handleToggleNotifications = () => {
+    setIsNotificationsOpen(!isNotificationsOpen);
+  };
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    await markNotificationAsRead(notificationId);
+    setNotifications(prev =>
+      prev.map(n => (n.id === notificationId ? { ...n, read: true } : n))
+    );
+    setUnreadCount(prev => (prev > 0 ? prev - 1 : 0));
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (user?.uid) {
+      await markAllUserNotificationsAsRead(user.uid);
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+      setIsNotificationsOpen(false); // Fermer le dropdown après
+    }
+  };
 
   const navSections: NavSection[] = [
     {
@@ -235,9 +274,63 @@ const Sidebar: React.FC = () => {
           {/* User Authentication Section */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             {user ? (
-              <div className="flex items-center">
-                <Link 
-                  href="/profile" 
+              <div className="flex items-center relative">
+                {/* Notifications Bell */}
+                {isOpen && ( // Afficher la cloche seulement quand la sidebar est ouverte ou en mode mobile
+                <div className="relative mr-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleToggleNotifications}
+                    className="rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+                    aria-label="Notifications"
+                  >
+                    <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                  {isNotificationsOpen && (
+                    <div className="absolute bottom-full mb-2 right-0 md:left-0 md:right-auto w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+                      <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                        <h4 className="font-semibold text-sm">Notifications</h4>
+                        {unreadCount > 0 && (
+                          <Button variant="link" size="sm" onClick={handleMarkAllAsRead} className="text-xs p-0 h-auto">
+                            Tout marquer comme lu
+                          </Button>
+                        )}
+                      </div>
+                      {notifications.length === 0 ? (
+                        <p className="p-4 text-sm text-gray-500 dark:text-gray-400">Aucune notification.</p>
+                      ) : (
+                        notifications.map(notif => (
+                          <div
+                            key={notif.id}
+                            className={`p-3 border-b border-gray-200 dark:border-gray-600 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700 ${!notif.read ? 'bg-amber-50 dark:bg-amber-900/30' : ''}`}
+                          >
+                            <Link href={notif.link || '#'} onClick={() => { if (!notif.read) handleMarkAsRead(notif.id); setIsNotificationsOpen(false); closeMobileSidebar(); }}>
+                              <p className="text-sm text-gray-700 dark:text-gray-200">{notif.message}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {new Date(notif.createdAt).toLocaleDateString()}
+                              </p>
+                            </Link>
+                            {!notif.read && (
+                              <Button variant="link" size="sm" onClick={() => handleMarkAsRead(notif.id)} className="text-xs p-0 h-auto mt-1">
+                                Marquer comme lu
+                              </Button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+                )}
+
+                <Link
+                  href="/profile"
                   className="cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
                   onClick={closeMobileSidebar}
                 >
@@ -257,11 +350,11 @@ const Sidebar: React.FC = () => {
                   )}
                 </Link>
                 <div className={`ml-3 flex-grow transition-opacity duration-300 ${
-                  (!isOpen && !isMobile) ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
+                  (!isOpen && !isMobile && !isNotificationsOpen) ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100' // Masquer si la sidebar est fermée ET que le dropdown de notif n'est pas ouvert
                 }`}>
                   <Link
                     href="/profile"
-                    onClick={closeMobileSidebar}
+                    onClick={() => { closeMobileSidebar(); setIsNotificationsOpen(false); }}
                     className="font-semibold text-sm text-gray-900 dark:text-white hover:underline focus:underline block"
                   >
                     {user.displayName || "User"}
@@ -271,6 +364,7 @@ const Sidebar: React.FC = () => {
                     onClick={() => {
                       logout();
                       closeMobileSidebar();
+                      setIsNotificationsOpen(false);
                     }}
                     className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-0 h-auto justify-start"
                   >

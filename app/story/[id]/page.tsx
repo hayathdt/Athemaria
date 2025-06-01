@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getStory, getComments, getAverageRating, getRating, createComment, setRating, updateComment, deleteComment, toggleFavorite, isStoryFavorited, toggleReadLater, isStoryInReadLater, recordStoryRead } from "@/lib/firebase/firestore"; // Added recordStoryRead
+import { getStory, getComments, getAverageRating, getRating, createComment, setRating, updateComment, deleteComment, toggleFavorite, isStoryFavorited, toggleReadLater, isStoryInReadLater, recordStoryRead, createReport } from "@/lib/firebase/firestore"; // Added recordStoryRead, createReport
 import { useAuth } from '@/lib/auth-context';
 import type { Comment, Rating, Story, RatingStats, Chapter } from "@/lib/types"; // Added Chapter
 import { formatDate } from "@/lib/utils";
@@ -10,7 +10,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StarRating } from '@/components/ui/star-rating';
 import { Badge } from "@/components/ui/badge"; // Import Badge component
-import { ArrowLeft, Book, ChevronLeft, ChevronRight, FileEdit } from "lucide-react"; // Added FileEdit
+import { ArrowLeft, Book, ChevronLeft, ChevronRight, FileEdit, Flag } from "lucide-react"; // Added FileEdit, Flag
 import {
   Select,
   SelectContent,
@@ -44,6 +44,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
   const [isFavoriteLoading, setIsFavoriteLoading] = useState<boolean>(false);
   const [isInReadLater, setIsInReadLater] = useState<boolean>(false);
   const [isReadLaterLoading, setIsReadLaterLoading] = useState<boolean>(false);
+  const [isReporting, setIsReporting] = useState<boolean>(false);
 
 
   // Fetch initial story data
@@ -302,6 +303,34 @@ export default function StoryPage({ params }: { params: { id: string } }) {
     }
   };
 
+  const handleReport = async () => {
+    if (!user || !storyId || isReporting) return;
+
+    // Optionnel: demander une raison pour le signalement via un modal/dialogue
+    const reason = window.prompt("Veuillez indiquer la raison de votre signalement :");
+    if (!reason || reason.trim() === "") {
+      // L'utilisateur a annulé ou n'a pas fourni de raison
+      return;
+    }
+
+    setIsReporting(true);
+    try {
+      await createReport({
+        storyId,
+        userId: user.uid,
+        reason: reason.trim(),
+      });
+      // Afficher un message de succès (par exemple, avec un toast)
+      alert("L'histoire a été signalée. Merci pour votre contribution.");
+    } catch (error) {
+      console.error('Error reporting story:', error);
+      // Afficher un message d'erreur
+      alert("Une erreur est survenue lors du signalement de l'histoire.");
+    } finally {
+      setIsReporting(false);
+    }
+  };
+
   if (isLoadingStory || authLoading) {
     // Basic loading state
     return <div className="container mx-auto px-4 py-8 text-center">Loading story...</div>;
@@ -377,6 +406,14 @@ export default function StoryPage({ params }: { params: { id: string } }) {
                       <i className={`material-icons text-2xl ${isFavorite ? 'text-red-500' : 'text-foreground'} ${isFavoriteLoading ? 'opacity-50' : ''}`}>
                         {isFavorite ? 'favorite' : 'favorite_border'}
                       </i>
+                    </button>
+                    <button
+                      onClick={handleReport}
+                      disabled={isReporting}
+                      className="p-3 rounded-full bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 shadow-md border border-amber-200/50 hover:border-amber-300"
+                      aria-label="Signaler cette histoire"
+                    >
+                      <Flag className={`h-5 w-5 text-foreground ${isReporting ? 'opacity-50' : ''}`} />
                     </button>
                   </div>
                 )}

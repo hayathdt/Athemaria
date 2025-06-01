@@ -1,4 +1,4 @@
-export type StoryStatus = "draft" | "published";
+export type StoryStatus = "draft" | "published" | "pending_correction" | "blocked";
 
 export interface Chapter {
   id: string;
@@ -117,4 +117,32 @@ export interface ReadingProgress {
   storyId: string;
   lastReadDate: string; // ISO string date
   progress?: number; // Optional: e.g., percentage or chapter number
+}
+
+export interface Report {
+  id: string;
+  storyId: string;
+  userId: string;
+  reason: string;
+  createdAt: string;
+  resolved: boolean;
+}
+
+export interface AdminAction {
+  id: string;
+  storyId: string;
+  actionType: "delete" | "block" | "request_correction" | "approve";
+  message?: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: "story_deleted" | "correction_requested" | "story_approved";
+  message: string;
+  read: boolean;
+  createdAt: string;
+  link?: string;
 }

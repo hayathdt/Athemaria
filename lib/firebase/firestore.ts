@@ -27,6 +27,9 @@ import type {
   RatingStats as ImportedRatingStats,
   UserStory,
   ReadingProgress,
+  Report,
+  AdminAction,
+  Notification,
 } from "../types";
 
 export async function createStory(storyData: StoryInput): Promise<string> { 
@@ -841,6 +844,192 @@ export async function getPopularStories(count: number = 10): Promise<Story[]> {
     return stories;
   } catch (error) {
     console.error("Error getting popular stories: ", error);
+    return [];
+  }
+}
+
+// Fonctions pour les signalements (Reports)
+export const createReport = async (reportData: Omit<Report, 'id' | 'createdAt' | 'resolved'>): Promise<string> => {
+  try {
+    const reportToSave = {
+      ...reportData,
+      createdAt: Timestamp.now().toMillis().toString(),
+      resolved: false,
+    };
+    const docRef = await addDoc(collection(db, 'reports'), reportToSave);
+    return docRef.id;
+  } catch (error) {
+    console.error("Error creating report: ", error);
+    throw new Error("Failed to create report");
+  }
+};
+
+export const getUnresolvedReports = async (): Promise<Report[]> => {
+  try {
+    const q = query(collection(db, 'reports'), where('resolved', '==', false), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Report));
+  } catch (error) {
+    console.error("Error getting unresolved reports: ", error);
+    return [];
+  }
+};
+
+export const resolveReport = async (reportId: string): Promise<void> => {
+  try {
+    await updateDoc(doc(db, 'reports', reportId), { resolved: true });
+  } catch (error) {
+    console.error(`Error resolving report ${reportId}: `, error);
+    throw new Error("Failed to resolve report");
+  }
+};
+
+// Fonctions pour les actions admin
+export const createAdminAction = async (actionData: Omit<AdminAction, 'id' | 'createdAt'>): Promise<string> => {
+  try {
+    const actionToSave = {
+      ...actionData,
+      createdAt: Timestamp.now().toMillis().toString(),
+    };
+    const docRef = await addDoc(collection(db, 'adminActions'), actionToSave);
+    return docRef.id;
+  } catch (error) {
+    console.error("Error creating admin action: ", error);
+    throw new Error("Failed to create admin action");
+  }
+};
+
+export const getPendingAdminActions = async (): Promise<AdminAction[]> => {
+  try {
+    // On pourrait vouloir filtrer par resolvedAt == null, mais pour l'instant on les prend toutes
+    const q = query(collection(db, 'adminActions'), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminAction));
+  } catch (error) {
+    console.error("Error getting admin actions: ", error);
+    return [];
+  }
+};
+
+export const updateAdminAction = async (actionId: string, updates: Partial<AdminAction>): Promise<void> => {
+  try {
+    await updateDoc(doc(db, 'adminActions', actionId), updates);
+  } catch (error) {
+    console.error(`Error updating admin action ${actionId}: `, error);
+    throw new Error("Failed to update admin action");
+  }
+};
+
+
+// Fonctions pour les notifications
+export const createNotification = async (notificationData: Omit<Notification, 'id' | 'createdAt' | 'read'>): Promise<string> => {
+  try {
+    const notificationToSave = {
+      ...notificationData,
+      createdAt: Timestamp.now().toMillis().toString(),
+      read: false,
+    };
+    const docRef = await addDoc(collection(db, 'notifications'), notificationToSave);
+    return docRef.id;
+  } catch (error) {
+    console.error("Error creating notification: ", error);
+    throw new Error("Failed to create notification");
+  }
+};
+
+export const getUserNotifications = async (userId: string): Promise<Notification[]> => {
+  try {
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+  } catch (error) {
+    console.error(`Error getting notifications for user ${userId}: `, error);
+    return [];
+  }
+};
+
+export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+  try {
+    await updateDoc(doc(db, 'notifications', notificationId), { read: true });
+  } catch (error) {
+    console.error(`Error marking notification ${notificationId} as read: `, error);
+    throw new Error("Failed to mark notification as read");
+  }
+};
+
+export const markAllUserNotificationsAsRead = async (userId: string): Promise<void> => {
+  try {
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', userId),
+      where('read', '==', false)
+    );
+    const snapshot = await getDocs(q);
+    const updates = snapshot.docs.map(docRef => updateDoc(doc(db, 'notifications', docRef.id), { read: true }));
+    await Promise.all(updates);
+  } catch (error) {
+    console.error(`Error marking all notifications as read for user ${userId}: `, error);
+    throw new Error("Failed to mark all notifications as read");
+  }
+};
+
+// Fonction pour récupérer les histoires par statut (utile pour le panel admin)
+export async function getStoriesByStatus(status: Story['status']): Promise<Story[]> {
+  try {
+    const storiesQuery = query(
+      collection(db, "stories"),
+      where("status", "==", status),
+      orderBy("updatedAt", "desc") // ou createdAt selon le besoin
+    );
+
+    const querySnapshot = await getDocs(storiesQuery);
+    const stories: Story[] = [];
+
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data() as DocumentData;
+      // Logique de mapping similaire à getStories/getStory
+      let chapters = data.chapters || [];
+      if (data.chapters === undefined && data.content !== undefined) {
+        chapters = [{ id: 'default', title: 'Chapter 1', content: data.content, order: 1 }];
+      } else if (data.chapters === undefined && data.content === undefined) {
+        chapters = [];
+      }
+      
+      let genres: string[] = [];
+      if (data.genres && Array.isArray(data.genres)) {
+        genres = data.genres;
+      } else if (data.genre && typeof data.genre === 'string') {
+        genres = [data.genre];
+      }
+
+      const tags: string[] = (data.tags && Array.isArray(data.tags)) ? data.tags : [];
+
+      stories.push({
+        id: docSnap.id,
+        title: data.title,
+        chapters: chapters,
+        description: data.description,
+        genres: genres,
+        tags: tags,
+        authorId: data.authorId,
+        authorName: data.authorName,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt || data.createdAt,
+        status: data.status || "published",
+        coverImage: data.coverImage || "/placeholder.jpg",
+        readCount: data.readCount || 0,
+        deleted: data.deleted || false,
+        deletedAt: data.deletedAt || undefined,
+      });
+    });
+
+    return stories;
+  } catch (error) {
+    console.error(`Error getting stories with status ${status}: `, error);
     return [];
   }
 }
