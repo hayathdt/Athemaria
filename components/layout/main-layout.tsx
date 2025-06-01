@@ -19,7 +19,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <Sidebar />
         
         {/* Main Content Area */}
-        <main className={`flex-1 transition-all duration-300 ease-in-out ${
+        <main className={`main-content flex-1 transition-all duration-300 ease-in-out ${
           isOpen ? 'md:ml-64' : 'md:ml-16'
         }`}>
           {/* Background decorative elements */}

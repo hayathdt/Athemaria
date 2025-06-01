@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getStory, getComments, getAverageRating, getRating, createComment, setRating, updateComment, deleteComment, toggleFavorite, isStoryFavorited, toggleReadLater, isStoryInReadLater } from "@/lib/firebase/firestore";
+import { getStory, getComments, getAverageRating, getRating, createComment, setRating, updateComment, deleteComment, toggleFavorite, isStoryFavorited, toggleReadLater, isStoryInReadLater, recordStoryRead } from "@/lib/firebase/firestore"; // Added recordStoryRead
 import { useAuth } from '@/lib/auth-context';
 import type { Comment, Rating, Story, RatingStats, Chapter } from "@/lib/types"; // Added Chapter
 import { formatDate } from "@/lib/utils";
@@ -54,6 +54,13 @@ export default function StoryPage({ params }: { params: { id: string } }) {
         const storyData = await getStory(storyId);
         if (storyData) {
           setStory(storyData);
+          // Record story read if user is logged in
+          if (user && user.uid) {
+            recordStoryRead(user.uid, storyId).catch(err => {
+              console.error("Failed to record story read:", err);
+              // Non-critical error, so don't block UI
+            });
+          }
         } else {
           notFound(); // Or handle as an error state
         }

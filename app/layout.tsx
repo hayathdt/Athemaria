@@ -40,6 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`h-full ${lora.variable} ${inter.variable}`} suppressHydrationWarning={true}>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       </head>
       <body className="h-full bg-gray-50 text-gray-800 font-sans">

@@ -26,6 +26,7 @@ import type {
   RatingInput,
   RatingStats as ImportedRatingStats,
   UserStory,
+  ReadingProgress,
 } from "../types";
 
 export async function createStory(storyData: StoryInput): Promise<string> { 
@@ -370,6 +371,7 @@ export async function getStories(limitCount = 50): Promise<Story[]> {
         updatedAt: data.updatedAt || data.createdAt,
         status: data.status || "published",
         coverImage: data.coverImage || "/placeholder.jpg", // Changed default path
+        readCount: data.readCount || 0,
       });
     });
 
@@ -416,6 +418,7 @@ export async function getStory(id: string): Promise<Story | null> {
         status: data.status || "published",
         updatedAt: data.updatedAt || data.createdAt,
         coverImage: data.coverImage || "/placeholder.jpg", // Changed default path
+        readCount: data.readCount || 0,
       };
       return story;
     } else {
@@ -754,5 +757,120 @@ export async function purgeOldStories(): Promise<void> {
   } catch (error) {
     console.error("Error purging old stories:", error);
     throw new Error("Failed to purge old stories");
+  }
+}
+
+export async function getContinueReadingStories(userId: string, count: number = 5): Promise<Story[]> {
+  try {
+    const readingProgressQuery = query(
+      collection(db, "readingProgress"),
+      where("userId", "==", userId),
+      orderBy("lastReadDate", "desc"),
+      limit(count)
+    );
+
+    const progressSnapshot = await getDocs(readingProgressQuery);
+    const storyIds = progressSnapshot.docs.map(doc => (doc.data() as ReadingProgress).storyId);
+
+    if (storyIds.length === 0) {
+      return [];
+    }
+
+    const stories: Story[] = [];
+    for (const storyId of storyIds) {
+      const story = await getStory(storyId);
+      // Vérifier que l'histoire existe et que l'auteur n'est pas l'utilisateur actuel
+      if (story && story.authorId !== userId) {
+        stories.push(story);
+      }
+    }
+    return stories;
+  } catch (error) {
+    console.error("Error getting continue reading stories: ", error);
+    return [];
+  }
+}
+
+export async function getPopularStories(count: number = 10): Promise<Story[]> {
+  try {
+    // Pour l'instant, nous trions par readCount.
+    // Une implémentation plus avancée pourrait prendre en compte la date pour "les plus lus du mois".
+    const storiesQuery = query(
+      collection(db, "stories"),
+      where("status", "==", "published"), // Uniquement les histoires publiées
+      orderBy("readCount", "desc"),
+      limit(count)
+    );
+
+    const querySnapshot = await getDocs(storiesQuery);
+    const stories: Story[] = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data() as DocumentData;
+      let chapters = data.chapters || [];
+      if (!data.chapters && data.content) {
+        chapters = [{ id: 'default', title: 'Chapter 1', content: data.content, order: 1 }];
+      }
+      
+      let genres: string[] = [];
+      if (data.genres && Array.isArray(data.genres)) {
+        genres = data.genres;
+      } else if (data.genre && typeof data.genre === 'string') {
+        genres = [data.genre];
+      }
+
+      const tags: string[] = (data.tags && Array.isArray(data.tags)) ? data.tags : [];
+
+      stories.push({
+        id: doc.id,
+        title: data.title,
+        chapters: chapters,
+        description: data.description,
+        genres: genres,
+        tags: tags,
+        authorId: data.authorId,
+        authorName: data.authorName,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt || data.createdAt,
+        status: data.status || "published",
+        coverImage: data.coverImage || "/placeholder.jpg",
+        readCount: data.readCount || 0,
+      });
+    });
+
+    return stories;
+  } catch (error) {
+    console.error("Error getting popular stories: ", error);
+    return [];
+  }
+}
+
+// Fonction pour mettre à jour le readCount et enregistrer la progression de lecture
+export async function recordStoryRead(userId: string, storyId: string): Promise<void> {
+  try {
+    // Mettre à jour la progression de lecture
+    const readingProgressRef = doc(db, "readingProgress", `${userId}_${storyId}`); // Utiliser un ID composite
+    await setDoc(readingProgressRef, {
+      userId,
+      storyId,
+      lastReadDate: Timestamp.now().toMillis().toString(),
+    }, { merge: true }); // merge:true pour créer ou mettre à jour
+
+    // Incrémenter le readCount de l'histoire
+    const storyRef = doc(db, "stories", storyId);
+    const storySnap = await getDoc(storyRef);
+
+    if (storySnap.exists()) {
+      const currentReadCount = storySnap.data().readCount || 0;
+      await updateDoc(storyRef, {
+        readCount: currentReadCount + 1,
+      });
+    } else {
+      console.warn(`Story with id ${storyId} not found for readCount increment.`);
+    }
+
+  } catch (error) {
+    console.error(`Error recording story read for story ${storyId} by user ${userId}: `, error);
+    // Ne pas bloquer l'utilisateur si cela échoue, mais logger l'erreur.
   }
 }

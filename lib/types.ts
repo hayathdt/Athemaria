@@ -22,6 +22,7 @@ export interface Story {
   coverImage?: string;
   deleted?: boolean;
   deletedAt?: string;
+  readCount?: number;
 }
 
 export interface StoryInput {
@@ -110,4 +111,10 @@ export interface RatingInput {
 export interface RatingStats {
   average: number;
   count: number;
+}
+export interface ReadingProgress {
+  userId: string;
+  storyId: string;
+  lastReadDate: string; // ISO string date
+  progress?: number; // Optional: e.g., percentage or chapter number
 }
