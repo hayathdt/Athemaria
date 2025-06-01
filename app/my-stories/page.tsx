@@ -75,7 +75,7 @@ const MyStoriesPage: React.FC = () => {
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
           Your Stories ({userStories.length})
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
           {currentStories.map((story) => (
             <UserStoryCard
               key={story.id}
