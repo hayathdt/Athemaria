@@ -1,9 +1,11 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { getUserProfile } from '@/lib/firebase/firestore'; // Importer getUserProfile
+import type { UserProfile } from '@/lib/types'; // Importer UserProfile
 import { useTheme } from 'next-themes';
 import { useSidebar } from '@/lib/sidebar-context';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -31,6 +33,21 @@ const Sidebar: React.FC = () => {
   const { isOpen, setIsOpen } = useSidebar();
   const isMobile = useIsMobile();
   const pathname = usePathname();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user?.uid) {
+        const profile = await getUserProfile(user.uid);
+        if (profile) {
+          setUserProfile(profile);
+        }
+      } else {
+        setUserProfile(null); // Réinitialiser si l'utilisateur se déconnecte
+      }
+    };
+    fetchUserProfile();
+  }, [user]);
 
   const navSections: NavSection[] = [
     {
@@ -224,12 +241,20 @@ const Sidebar: React.FC = () => {
                   className="cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
                   onClick={closeMobileSidebar}
                 >
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600 dark:text-gray-300">
-                      <circle cx="12" cy="8" r="5"/>
-                      <path d="M20 21a8 8 0 0 0-16 0"/>
-                    </svg>
-                  </div>
+                  {userProfile?.avatar ? (
+                    <img
+                      src={userProfile.avatar}
+                      alt={userProfile.displayName || "User Avatar"}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600 dark:text-gray-300">
+                        <circle cx="12" cy="8" r="5"/>
+                        <path d="M20 21a8 8 0 0 0-16 0"/>
+                      </svg>
+                    </div>
+                  )}
                 </Link>
                 <div className={`ml-3 flex-grow transition-opacity duration-300 ${
                   (!isOpen && !isMobile) ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
