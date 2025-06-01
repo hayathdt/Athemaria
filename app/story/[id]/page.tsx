@@ -12,6 +12,19 @@ import { StarRating } from '@/components/ui/star-rating';
 import { Badge } from "@/components/ui/badge"; // Import Badge component
 import { ArrowLeft, Book, ChevronLeft, ChevronRight, FileEdit, Flag } from "lucide-react"; // Added FileEdit, Flag
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -45,6 +58,8 @@ export default function StoryPage({ params }: { params: { id: string } }) {
   const [isInReadLater, setIsInReadLater] = useState<boolean>(false);
   const [isReadLaterLoading, setIsReadLaterLoading] = useState<boolean>(false);
   const [isReporting, setIsReporting] = useState<boolean>(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState<boolean>(false);
+  const [reportReason, setReportReason] = useState<string>("");
 
 
   // Fetch initial story data
@@ -303,29 +318,22 @@ export default function StoryPage({ params }: { params: { id: string } }) {
     }
   };
 
-  const handleReport = async () => {
-    if (!user || !storyId || isReporting) return;
-
-    // Optionnel: demander une raison pour le signalement via un modal/dialogue
-    const reason = window.prompt("Veuillez indiquer la raison de votre signalement :");
-    if (!reason || reason.trim() === "") {
-      // L'utilisateur a annulé ou n'a pas fourni de raison
-      return;
-    }
+  const handleSubmitReport = async () => {
+    if (!user || !storyId || !reportReason.trim() || isReporting) return;
 
     setIsReporting(true);
     try {
       await createReport({
         storyId,
         userId: user.uid,
-        reason: reason.trim(),
+        reason: reportReason.trim(),
       });
-      // Afficher un message de succès (par exemple, avec un toast)
-      alert("L'histoire a été signalée. Merci pour votre contribution.");
+      toast.success("Story reported. Thank you for your feedback.");
+      setIsReportDialogOpen(false);
+      setReportReason("");
     } catch (error) {
       console.error('Error reporting story:', error);
-      // Afficher un message d'erreur
-      alert("Une erreur est survenue lors du signalement de l'histoire.");
+      toast.error("An error occurred while reporting the story.");
     } finally {
       setIsReporting(false);
     }
@@ -387,13 +395,56 @@ export default function StoryPage({ params }: { params: { id: string } }) {
                 </h1>
                 {user && (
                   <div className="flex items-center space-x-2">
+                    <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+                      <DialogTrigger asChild>
+                        <button
+                          disabled={isReporting}
+                          className="p-3 rounded-full bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 shadow-md border border-amber-200/50 hover:border-amber-300"
+                          aria-label="Report this story"
+                        >
+                          <Flag className={`text-lg md:text-xl text-foreground ${isReporting ? 'opacity-50' : ''}`} />
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-900">
+                        <DialogHeader>
+                          <DialogTitle className="text-amber-900 dark:text-amber-100">Report this Story</DialogTitle>
+                          <DialogDescription className="text-amber-700/80 dark:text-amber-300/80">
+                            Please describe the reason for your report. Your report will remain anonymous.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="reportReason" className="text-right text-amber-800 dark:text-amber-200">
+                              Reason
+                            </Label>
+                            <Textarea
+                              id="reportReason"
+                              value={reportReason}
+                              onChange={(e) => setReportReason(e.target.value)}
+                              className="col-span-3 border-amber-300 dark:border-amber-700 bg-white/70 dark:bg-gray-800/50 text-amber-900 dark:text-amber-100 placeholder-amber-500 dark:placeholder-amber-500/70"
+                              placeholder="Describe why you are reporting this story..."
+                              rows={4}
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <DialogClose asChild>
+                            <Button variant="outline" className="text-amber-900 dark:text-amber-100 border-amber-300 dark:border-amber-700 hover:bg-amber-100/50 dark:hover:bg-amber-900/50">Cancel</Button>
+                          </DialogClose>
+                          <Button onClick={handleSubmitReport} disabled={isReporting || !reportReason.trim()} className="bg-amber-500 hover:bg-amber-600 text-white dark:bg-amber-600 dark:hover:bg-amber-700">
+                            {isReporting ? "Submitting..." : "Submit Report"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
                     <button
                       onClick={handleReadLaterToggle}
                       disabled={isReadLaterLoading}
                       className="p-3 rounded-full bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 shadow-md border border-amber-200/50 hover:border-amber-300"
                       aria-label={isInReadLater ? 'Remove from read later' : 'Add to read later'}
                     >
-                      <i className={`material-icons text-2xl ${isInReadLater ? 'text-blue-500' : 'text-foreground'} ${isReadLaterLoading ? 'opacity-50' : ''}`}>
+                      <i className={`material-icons text-lg md:text-xl ${isInReadLater ? 'text-blue-500' : 'text-foreground'} ${isReadLaterLoading ? 'opacity-50' : ''}`}>
                         {isInReadLater ? 'bookmark' : 'bookmark_border'}
                       </i>
                     </button>
@@ -403,17 +454,9 @@ export default function StoryPage({ params }: { params: { id: string } }) {
                       className="p-3 rounded-full bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 shadow-md border border-amber-200/50 hover:border-amber-300"
                       aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                     >
-                      <i className={`material-icons text-2xl ${isFavorite ? 'text-red-500' : 'text-foreground'} ${isFavoriteLoading ? 'opacity-50' : ''}`}>
+                      <i className={`material-icons text-lg md:text-xl ${isFavorite ? 'text-red-500' : 'text-foreground'} ${isFavoriteLoading ? 'opacity-50' : ''}`}>
                         {isFavorite ? 'favorite' : 'favorite_border'}
                       </i>
-                    </button>
-                    <button
-                      onClick={handleReport}
-                      disabled={isReporting}
-                      className="p-3 rounded-full bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 shadow-md border border-amber-200/50 hover:border-amber-300"
-                      aria-label="Signaler cette histoire"
-                    >
-                      <Flag className={`h-5 w-5 text-foreground ${isReporting ? 'opacity-50' : ''}`} />
                     </button>
                   </div>
                 )}

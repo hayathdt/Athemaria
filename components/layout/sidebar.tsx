@@ -298,12 +298,12 @@ const Sidebar: React.FC = () => {
                         <h4 className="font-semibold text-sm">Notifications</h4>
                         {unreadCount > 0 && (
                           <Button variant="link" size="sm" onClick={handleMarkAllAsRead} className="text-xs p-0 h-auto">
-                            Tout marquer comme lu
+                            Mark all as read
                           </Button>
                         )}
                       </div>
                       {notifications.length === 0 ? (
-                        <p className="p-4 text-sm text-gray-500 dark:text-gray-400">Aucune notification.</p>
+                        <p className="p-4 text-sm text-gray-500 dark:text-gray-400">No notifications.</p>
                       ) : (
                         notifications.map(notif => (
                           <div
@@ -318,7 +318,7 @@ const Sidebar: React.FC = () => {
                             </Link>
                             {!notif.read && (
                               <Button variant="link" size="sm" onClick={() => handleMarkAsRead(notif.id)} className="text-xs p-0 h-auto mt-1">
-                                Marquer comme lu
+                                Mark as read
                               </Button>
                             )}
                           </div>
@@ -350,7 +350,7 @@ const Sidebar: React.FC = () => {
                   )}
                 </Link>
                 <div className={`ml-3 flex-grow transition-opacity duration-300 ${
-                  (!isOpen && !isMobile && !isNotificationsOpen) ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100' // Masquer si la sidebar est fermée ET que le dropdown de notif n'est pas ouvert
+                  (!isOpen && !isMobile) ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
                 }`}>
                   <Link
                     href="/profile"
