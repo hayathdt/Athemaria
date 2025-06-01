@@ -9,10 +9,12 @@ import { v4 as uuidv4 } from "uuid"; // Import uuid
 import Editor from "../create-story/editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; // Import Input for chapter title
-import { AlertCircle, BookOpen, Save, PlusCircle, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { AlertCircle, BookOpen, Save, PlusCircle, Trash2, ArrowUp, ArrowDown, Upload } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import AuthCheck from "@/components/auth-check";
 import { Label } from "@/components/ui/label";
+import { uploadStoryCover, deleteFile } from "@/lib/firebase/storage";
+import { getDefaultCoverUrlSync } from "@/lib/hooks/use-default-cover";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function WritePage() {
@@ -29,7 +31,10 @@ export default function WritePage() {
   // New state variables for story metadata
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
-  const [coverImage, setCoverImage] = useState<string>("");
+  const [coverImage, setCoverImage] = useState<string>(""); // Stores the current cover image URL (loaded or manually entered)
+  const [initialCoverImage, setInitialCoverImage] = useState<string>(""); // Stores the initially loaded cover image URL
+  const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
+  const [coverFilePreview, setCoverFilePreview] = useState<string | null>(null);
   const [storyGenres, setStoryGenres] = useState<string[]>([]); // Holds the actual story genres
   const [storyTags, setStoryTags] = useState<string[]>([]);   // Holds the actual story tags
 
@@ -55,7 +60,9 @@ export default function WritePage() {
 
             setTitle(loadedStory.title || "");
             setDescription(loadedStory.description || "");
-            setCoverImage(loadedStory.coverImage || "");
+            const loadedCover = loadedStory.coverImage || "";
+            setCoverImage(loadedCover);
+            setInitialCoverImage(loadedCover); // Store initial cover
             const currentGenres = loadedStory.genres || [];
             setStoryGenres(currentGenres);
             setGenre1(currentGenres[0] || "");
@@ -99,7 +106,9 @@ export default function WritePage() {
         const pendingStoryData = JSON.parse(pendingStoryString);
         setTitle(pendingStoryData.title || "");
         setDescription(pendingStoryData.description || "");
-        setCoverImage(pendingStoryData.coverImage || "");
+        const pendingCover = pendingStoryData.coverImage || "";
+        setCoverImage(pendingCover);
+        setInitialCoverImage(pendingCover); // Store initial cover from pending
         const currentGenres = pendingStoryData.genres || [];
         setStoryGenres(currentGenres);
         setGenre1(currentGenres[0] || "");
@@ -127,52 +136,106 @@ export default function WritePage() {
     }
   }, [storyId, user?.uid, chapters.length]); // Added chapters.length to dependencies
 
+  const handleCoverFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedCoverFile(file);
+      setCoverImage(""); // Clear any manually entered URL if a file is chosen
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCoverFilePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setSelectedCoverFile(null);
+      setCoverFilePreview(null);
+    }
+  };
+
   const handleSave = async (status: "draft" | "published") => {
-    if (!user || chapters.length === 0 || currentChapterIndex === null) {
-      setError("Cannot save: No user, no chapters, or no chapter selected.");
+    if (!user) {
+      setError("You must be logged in to save.");
       return;
     }
-
-    // Ensure all chapters have titles
-    const chaptersWithTitles = chapters.map((chap, index) => ({
-      ...chap,
-      title: chap.title || `Chapter ${index + 1}`,
-      order: index + 1, // Ensure order is sequential before saving
-    }));
-    setChapters(chaptersWithTitles);
-
+    if (chapters.length === 0 || currentChapterIndex === null) {
+      setError("Cannot save: No chapters or no chapter selected.");
+      return;
+    }
 
     setIsSaving(true);
     setError("");
 
-    // Process genres and tags from UI state
-    const finalGenres: string[] = [];
-    if (genre1) finalGenres.push(genre1);
-    if (genre2) finalGenres.push(genre2);
-    if (genre3) finalGenres.push(genre3);
+    let finalCoverImageUrl = initialCoverImage || getDefaultCoverUrlSync(); // Start with initial or default
+    let newCoverPath: string | null = null; // To store the path of the newly uploaded file
 
-    const finalTags: string[] = tagsInput
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag !== "");
-
-    // Validation
-    if (!title.trim()) {
-      setError("Story title cannot be empty.");
-      setIsSaving(false);
-      return;
-    }
-    if (finalGenres.length === 0) {
-      setError("Please select at least one genre.");
-      setIsSaving(false);
-      return;
-    }
+    // TODO: Implement storing coverImagePath in Firestore to reliably delete old covers.
+    // For now, new uploads will create new files, potentially orphaning old ones if not default.
+    // const oldCoverPath = story?.coverImagePath; // Assuming story object has coverImagePath
 
     try {
-      let newStoryId = storyId; // For navigation after creation
-      if (storyId) {
-        // Update existing story
-        const storyUpdateData = { // Explicitly StoryUpdate type if defined with all fields
+      if (selectedCoverFile) {
+        // If a new file is selected, upload it
+        const uniquePathSegment = storyId || `${user.uid}-${Date.now()}`;
+        // The uploadStoryCover function in storage.ts will append the extension.
+        // It expects the storyId (or a unique identifier) to construct the path.
+        finalCoverImageUrl = await uploadStoryCover(selectedCoverFile, uniquePathSegment);
+        // newCoverPath = `covers/${uniquePathSegment}.${selectedCoverFile.name.split('.').pop()}`; // Store this path
+
+        // Attempt to delete old image if it was a Firebase Storage URL and not the default
+        // This is a simplified deletion attempt and has limitations without storing the full path.
+        if (initialCoverImage && initialCoverImage.includes("firebasestorage.googleapis.com") && initialCoverImage !== getDefaultCoverUrlSync()) {
+            try {
+                const url = new URL(initialCoverImage);
+                const pathName = url.pathname; // e.g., /v0/b/your-bucket/o/covers%2FstoryId-timestamp.jpg
+                const encodedPath = pathName.substring(pathName.indexOf('/o/') + 3);
+                const decodedPath = decodeURIComponent(encodedPath);
+                if (decodedPath && !decodedPath.includes("placeholders/cover.png")) { // Don't delete default placeholder
+                    await deleteFile(decodedPath);
+                }
+            } catch (deleteError) {
+                console.warn("Could not delete old cover image:", deleteError);
+                // Non-fatal, continue with saving the new image
+            }
+        }
+
+      } else if (coverImage !== initialCoverImage) {
+        // If no new file, but the URL input field was changed
+        finalCoverImageUrl = coverImage || getDefaultCoverUrlSync();
+      }
+      // If no file selected and URL field not changed, finalCoverImageUrl remains initialCoverImage or default
+
+      const chaptersWithTitles = chapters.map((chap, index) => ({
+        ...chap,
+        title: chap.title || `Chapter ${index + 1}`,
+        order: index + 1,
+      }));
+      setChapters(chaptersWithTitles);
+
+      const finalGenres: string[] = [];
+      if (genre1) finalGenres.push(genre1);
+      if (genre2) finalGenres.push(genre2);
+      if (genre3) finalGenres.push(genre3);
+
+      const finalTags: string[] = tagsInput
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag !== "");
+
+      if (!title.trim()) {
+        setError("Story title cannot be empty.");
+        setIsSaving(false);
+        return;
+      }
+      if (finalGenres.length === 0) {
+        setError("Please select at least one genre.");
+        setIsSaving(false);
+        return;
+      }
+
+      let currentStoryId = storyId;
+
+      if (currentStoryId) {
+        const storyUpdateData: any = {
           title: title.trim(),
           description: description.trim(),
           genres: finalGenres,
@@ -180,12 +243,12 @@ export default function WritePage() {
           chapters: chaptersWithTitles,
           status,
           updatedAt: new Date().toISOString(),
-          coverImage: coverImage || "/assets/cover.png",
+          coverImage: finalCoverImageUrl,
+          // coverImagePath: newCoverPath || story?.coverImagePath, // Store new path or keep old if no new upload
         };
-        await updateStory(storyId, storyUpdateData);
+        await updateStory(currentStoryId, storyUpdateData);
       } else {
-        // Create new story
-        const newStoryData = { // Explicitly StoryInput type if defined with all fields
+        const newStoryData: any = {
           title: title.trim(),
           description: description.trim(),
           genres: finalGenres,
@@ -195,16 +258,17 @@ export default function WritePage() {
           authorId: user.uid,
           authorName: user.displayName || "Anonymous",
           createdAt: new Date().toISOString(),
-          coverImage: coverImage || "/assets/cover.png",
+          coverImage: finalCoverImageUrl,
+          // coverImagePath: newCoverPath, // Store path for new story
         };
-        newStoryId = await createStory(newStoryData); // createStory should return the new ID
+        currentStoryId = await createStory(newStoryData);
       }
 
-      localStorage.removeItem("pendingStory"); // Clear pending metadata
-      // Navigate to the story page using the potentially new story ID
-      router.push(status === "published" ? `/story/${newStoryId}` : "/");
+      localStorage.removeItem("pendingStory");
+      router.push(status === "published" ? `/story/${currentStoryId}` : "/my-stories");
     } catch (err: any) {
       setError(err.message || "Failed to save the story.");
+      console.error("Save error:", err);
     } finally {
       setIsSaving(false);
     }
@@ -341,18 +405,60 @@ export default function WritePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="coverImageInput" className="text-sm font-medium text-amber-900 dark:text-amber-100">Cover Image (Optional)</Label>
+                  <Label htmlFor="coverImageFile" className="text-sm font-medium text-amber-900 dark:text-amber-100">Cover Image</Label>
                   <Input
-                    id="coverImageInput"
-                    type="url"
-                    value={coverImage}
-                    onChange={(e) => setCoverImage(e.target.value)}
-                    placeholder="Enter image URL or leave empty for default cover"
-                    className="rounded-xl border-amber-200/50 dark:border-amber-800/50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl text-foreground"
+                    id="coverImageFile"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverFileChange}
+                    className="h-14 p-3 rounded-xl border-amber-200/50 dark:border-amber-800/50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl transition-colors focus:border-amber-500/50 dark:focus:border-amber-500/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200"
+                    disabled={isSaving}
                   />
-                  <p className="text-xs text-amber-700/70 dark:text-amber-300/70">
-                    If no image is provided, a default cover will be used.
+                  {coverFilePreview && (
+                    <div className="mt-2">
+                      <img src={coverFilePreview} alt="New cover preview" className="max-h-40 w-auto rounded-lg object-cover border dark:border-gray-700" />
+                    </div>
+                  )}
+                  {!selectedCoverFile && coverImage && ( // Show current/manual URL input if no file selected but a coverImage URL exists
+                    <>
+                      <p className="text-xs text-center text-amber-700/70 dark:text-amber-300/70 my-1">OR Current / Manual URL:</p>
+                      <Input
+                        id="coverImageUrlInput"
+                        type="url"
+                        value={coverImage} // This state holds the current URL or manually entered one
+                        onChange={(e) => {
+                            setCoverImage(e.target.value);
+                            setSelectedCoverFile(null); // Clear selected file if URL is typed/changed
+                            setCoverFilePreview(null);
+                        }}
+                        placeholder="Enter image URL"
+                        className="rounded-xl border-amber-200/50 dark:border-amber-800/50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl text-foreground"
+                        disabled={isSaving}
+                      />
+                    </>
+                  )}
+                   {!selectedCoverFile && !coverImage && ( // If no file and no current URL, show placeholder for manual URL
+                     <>
+                        <p className="text-xs text-center text-amber-700/70 dark:text-amber-300/70 my-1">OR</p>
+                        <Input
+                            id="coverImageUrlInputManual"
+                            type="url"
+                            onChange={(e) => setCoverImage(e.target.value)}
+                            placeholder="Enter image URL"
+                            className="rounded-xl border-amber-200/50 dark:border-amber-800/50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl text-foreground"
+                            disabled={isSaving}
+                        />
+                     </>
+                   )}
+                  <p className="text-xs text-amber-700/70 dark:text-amber-300/70 mt-1">
+                    Upload a new image or provide/edit the URL. If left empty, the default or existing cover will be used.
                   </p>
+                  {initialCoverImage && !coverFilePreview && !selectedCoverFile && (
+                    <div className="mt-2">
+                      <p className="text-xs text-amber-700/70 dark:text-amber-300/70">Current cover:</p>
+                      <img src={initialCoverImage} alt="Current cover" className="max-h-40 w-auto rounded-lg object-cover border dark:border-gray-700" />
+                    </div>
+                  )}
                 </div>
               </div>
 

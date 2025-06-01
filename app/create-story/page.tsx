@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -11,62 +11,102 @@ import { Textarea } from "@/components/ui/textarea";
 // Assuming Select components are available and follow this pattern.
 // If not, standard HTML select will be used within the JSX.
 // For this example, I'll proceed as if standard <select> is fine.
-import { AlertCircle, BookOpen } from "lucide-react";
+import { AlertCircle, BookOpen, Upload } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import AuthCheck from "@/components/auth-check";
 import { getDefaultCoverUrlSync } from "@/lib/hooks/use-default-cover";
+import { uploadStoryCover } from "@/lib/firebase/storage";
 
 export default function CreateStoryPage() {
   const [title, setTitle] = useState("");
-  // const [content, setContent] = useState(""); // content is not used in this form, it's for the /write page
   const [description, setDescription] = useState("");
   const [genre1, setGenre1] = useState("");
   const [genre2, setGenre2] = useState("");
   const [genre3, setGenre3] = useState("");
   const [tags, setTags] = useState("");
-  const [coverImage, setCoverImage] = useState("");
+  const [coverImageUrl, setCoverImageUrl] = useState(""); // Stores URL from input or upload
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const { user } = useAuth();
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setCoverImageUrl(""); // Clear any manually entered URL if a file is chosen
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFilePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setSelectedFile(null);
+      setFilePreview(null);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
 
     if (!user) {
       setError("You must be logged in to create a story");
       return;
     }
 
-    if (!title || !description || !genre1) { // Check for title, description, and at least the first genre
+    if (!title || !description || !genre1) {
       setError("Please fill out title, description, and select at least one genre.");
       return;
     }
 
-    const selectedGenres: string[] = [];
-    if (genre1) selectedGenres.push(genre1);
-    if (genre2) selectedGenres.push(genre2);
-    if (genre3) selectedGenres.push(genre3);
+    setIsLoading(true);
+    let finalCoverImageUrl = getDefaultCoverUrlSync();
 
-    const processedTags: string[] = tags
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag !== "");
+    try {
+      if (selectedFile) {
+        // Create a unique path for the story cover.
+        // Since storyId is not available yet, use userId and timestamp as a unique identifier for the story.
+        // uploadStoryCover will construct the full path including 'covers/', the identifier, a new timestamp, and extension.
+        const uniqueStoryIdentifier = `${user.uid}-${Date.now()}`;
+        finalCoverImageUrl = await uploadStoryCover(selectedFile, uniqueStoryIdentifier);
+      } else if (coverImageUrl) {
+        // If a URL was manually entered and no file selected
+        finalCoverImageUrl = coverImageUrl;
+      }
 
-    localStorage.setItem(
-      "pendingStory",
-      JSON.stringify({
-        title,
-        description,
-        genres: selectedGenres, // Use the new genres array
-        tags: processedTags,    // Add the processed tags
-        status: "draft" as const,
-        coverImage: coverImage || getDefaultCoverUrlSync(), // Use Firebase-hosted default if no image selected
-      })
-    );
+      const selectedGenres: string[] = [];
+      if (genre1) selectedGenres.push(genre1);
+      if (genre2) selectedGenres.push(genre2);
+      if (genre3) selectedGenres.push(genre3);
 
-    router.push("/write");
+      const processedTags: string[] = tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag !== "");
+
+      localStorage.setItem(
+        "pendingStory",
+        JSON.stringify({
+          title,
+          description,
+          genres: selectedGenres,
+          tags: processedTags,
+          status: "draft" as const,
+          coverImage: finalCoverImageUrl,
+        })
+      );
+      router.push("/write");
+
+    } catch (err: any) {
+      console.error("Failed to upload cover image or create story:", err);
+      setError(err.message || "Failed to process story creation. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -224,21 +264,44 @@ export default function CreateStoryPage() {
 
                   <div className="space-y-2">
                     <Label
-                      htmlFor="coverImage"
+                      htmlFor="coverImageFile"
                       className="text-sm font-medium text-amber-900 dark:text-amber-100"
                     >
                       Cover Image (Optional)
                     </Label>
                     <Input
-                      id="coverImage"
-                      type="url"
-                      value={coverImage}
-                      onChange={(e) => setCoverImage(e.target.value)}
-                      placeholder="Enter image URL or leave empty for default cover"
-                      className="rounded-xl border-amber-200/50 dark:border-amber-800/50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl transition-colors focus:border-amber-500/50 dark:focus:border-amber-500/50"
+                      id="coverImageFile"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="h-14 p-3 rounded-xl border-amber-200/50 dark:border-amber-800/50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl transition-colors focus:border-amber-500/50 dark:focus:border-amber-500/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200"
+                      disabled={isLoading}
                     />
-                    <p className="text-xs text-amber-700/70 dark:text-amber-300/70">
-                      If no image is provided, a default cover will be used.
+                    {filePreview && (
+                      <div className="mt-2">
+                        <img src={filePreview} alt="Cover preview" className="max-h-40 rounded-lg object-cover" />
+                      </div>
+                    )}
+                    {!selectedFile && (
+                        <>
+                            <p className="text-xs text-center text-amber-700/70 dark:text-amber-300/70 my-1">OR</p>
+                            <Input
+                              id="coverImageUrlInput"
+                              type="url"
+                              value={coverImageUrl}
+                              onChange={(e) => {
+                                setCoverImageUrl(e.target.value);
+                                setSelectedFile(null); // Clear selected file if URL is typed
+                                setFilePreview(null);
+                              }}
+                              placeholder="Enter image URL"
+                              className="rounded-xl border-amber-200/50 dark:border-amber-800/50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl transition-colors focus:border-amber-500/50 dark:focus:border-amber-500/50"
+                              disabled={isLoading}
+                            />
+                        </>
+                    )}
+                    <p className="text-xs text-amber-700/70 dark:text-amber-300/70 mt-1">
+                      Upload an image or provide a URL. If neither, a default cover will be used.
                     </p>
                   </div>
 
