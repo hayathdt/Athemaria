@@ -118,3 +118,15 @@ export async function uploadStoryCover(file: File, storyId: string): Promise<str
   const path = `covers/${storyId}-${Date.now()}.${file.name.split('.').pop()}`;
   return uploadFile(file, path);
 }
+/**
+ * Upload an avatar image
+ * @param file - The image file
+ * @param userId - The user ID
+ * @returns Promise<string> - The download URL
+ */
+export async function uploadAvatar(file: File, userId: string): Promise<string> {
+  const fileExtension = file.name.split('.').pop();
+  const storagePath = `avatars/${userId}.${fileExtension}`;
+  // Réutilise la fonction uploadFile existante pour la logique d'upload
+  return uploadFile(file, storagePath);
+}

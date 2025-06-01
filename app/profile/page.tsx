@@ -8,6 +8,7 @@ import {
   updateUserProfile,
   getUserStories, // Import getUserStories
 } from "@/lib/firebase/firestore";
+import { uploadAvatar, deleteFile } from "@/lib/firebase/storage"; // Ajout des imports pour l'avatar
 import type { UserProfile, UserStory } from "@/lib/types"; // Import UserStory
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,11 @@ export default function ProfilePage() {
   const [userStories, setUserStories] = useState<UserStory[]>([]); // New state for user stories
   const [currentPage, setCurrentPage] = useState(1); // New state for pagination
   const [storiesPerPage] = useState(6); // Number of stories per page
+
+  // États pour l'upload d'avatar
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const [formData, setFormData] = useState({
     displayName: "",
@@ -147,7 +153,65 @@ export default function ProfilePage() {
       [name]: value,
     }));
   };
- 
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!user || !profile) return;
+
+    setIsUploadingAvatar(true);
+    try {
+      // Uploader la nouvelle image
+      const newAvatarUrl = await uploadAvatar(file, user.uid);
+
+      // Supprimer l'ancienne image si elle existe et n'est pas le placeholder par défaut
+      if (profile.avatar && profile.avatar !== "/placeholder-user.jpg" && profile.avatar.includes("firebasestorage.googleapis.com")) {
+        try {
+          const url = new URL(profile.avatar);
+          const pathName = url.pathname; // e.g., /v0/b/your-bucket/o/avatars%2FuserId.jpg
+          // Extrait le chemin encodé après /o/
+          const encodedPath = pathName.substring(pathName.indexOf('/o/') + 3);
+          // Décode le chemin pour obtenir le chemin réel dans storage
+          const decodedPath = decodeURIComponent(encodedPath);
+          
+          // Vérifie que le chemin décodé est valide et ne correspond pas à un placeholder générique
+          if (decodedPath && !decodedPath.includes("placeholders/")) {
+            await deleteFile(decodedPath);
+          }
+        } catch (error) {
+          console.error("Failed to delete old avatar:", error);
+          // Ne pas bloquer la mise à jour si la suppression échoue
+        }
+      }
+
+      // Mettre à jour le profil dans Firestore
+      const updatedProfileData = { ...profile, avatar: newAvatarUrl };
+      await updateUserProfile(user.uid, updatedProfileData);
+      
+      // Mettre à jour l'état local du profil
+      setProfile(updatedProfileData);
+      
+      toast({
+        title: "Succès",
+        description: "Votre photo de profil a été mise à jour.",
+      });
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      toast({
+        title: "Erreur",
+        description: "Échec de la mise à jour de l'avatar. Veuillez réessayer.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+      setSelectedAvatarFile(null);
+      setAvatarPreview(null);
+      // S'assurer que l'input file est réinitialisé pour permettre de re-sélectionner le même fichier
+      const avatarUploadInput = document.getElementById('avatarUpload') as HTMLInputElement;
+      if (avatarUploadInput) {
+        avatarUploadInput.value = "";
+      }
+    }
+  };
+
   const indexOfLastStory = currentPage * storiesPerPage;
   const indexOfFirstStory = indexOfLastStory - storiesPerPage;
   const currentStories = userStories.slice(indexOfFirstStory, indexOfLastStory);
@@ -168,14 +232,60 @@ export default function ProfilePage() {
               </Button>
             </div>
             <div className="flex flex-col items-center">
-              <div className="rounded-full border-2 border-white shadow-lg w-24 h-24 overflow-hidden mb-4">
-                <img
-                  src={profile?.avatar || "/placeholder-user.jpg"}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
+              <div className="group rounded-full border-2 border-white shadow-lg w-24 h-24 overflow-hidden mb-4 relative cursor-pointer" onClick={() => !isUploadingAvatar && document.getElementById('avatarUpload')?.click()}>
+                {isUploadingAvatar ? (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200/50 dark:bg-gray-700/50">
+                    <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                ) : (
+                  <>
+                    <img
+                      src={avatarPreview || profile?.avatar || "/placeholder-user.jpg"}
+                      alt="Profile"
+                      className="w-full h-full object-cover transition-opacity group-hover:opacity-50"
+                    />
+                    {/* Overlay et icône pour l'upload, visible au survol */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 opacity-0 group-hover:opacity-100">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                        <path d="M10 9a3 3 0 100-6 3 3 0 000 6z" />
+                      </svg>
+                    </div>
+                  </>
+                )}
               </div>
-              <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+              <input
+                id="avatarUpload"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) {
+                    const file = e.target.files[0];
+                    // Vérification de la taille du fichier (ex: max 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        toast({
+                            title: "Fichier trop volumineux",
+                            description: "Veuillez sélectionner une image de moins de 5MB.",
+                            variant: "destructive",
+                        });
+                        // Réinitialiser l'input file
+                        e.target.value = "";
+                        return;
+                    }
+                    setSelectedAvatarFile(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => setAvatarPreview(reader.result as string);
+                    reader.readAsDataURL(file);
+                    // L'upload est déclenché ici, après la sélection et la prévisualisation
+                    handleAvatarUpload(file);
+                  }
+                }}
+                className="hidden"
+              />
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                 {profile?.displayName}
               </h1>
             </div>
