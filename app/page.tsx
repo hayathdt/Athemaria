@@ -4,32 +4,67 @@ import React, { useState, useEffect } from 'react';
 import ContinueReadingCarousel from '@/components/ui/continue-reading-carousel';
 import BookRecommendationCard from '@/components/cards/book-recommendation-card';
 import PageHeader from '@/components/layout/page-header';
-import { getStories } from '@/lib/firebase/firestore';
+import { getStories, getContinueReadingStories, getPopularStories } from '@/lib/firebase/firestore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { Story } from '@/lib/types';
+import { useAuth } from '@/lib/auth-context'; // Ajout pour l'authentification
 
 const HomePage: React.FC = () => {
-  const [stories, setStories] = useState<Story[]>([]);
+  const { user } = useAuth(); // Obtenir l'utilisateur actuel
+  const [continueReading, setContinueReading] = useState<Story[]>([]);
+  const [recommendations, setRecommendations] = useState<Story[]>([]);
+  const [storiesByGenre, setStoriesByGenre] = useState<Record<string, Story[]>>({});
+  const [allStories, setAllStories] = useState<Story[]>([]); // Pour le regroupement par genre
   const [isLoading, setIsLoading] = useState(true);
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    const fetchStories = async () => {
+    const fetchHomePageData = async () => {
+      setIsLoading(true);
+      console.log("Fetching homepage data. User:", user ? user.uid : 'No user');
       try {
-        const fetchedStories = await getStories();
-        setStories(fetchedStories);
+        // Récupérer toutes les histoires pour le regroupement par genre
+        const fetchedAllStories = await getStories();
+        setAllStories(fetchedAllStories);
+        console.log("Fetched all stories:", fetchedAllStories.length);
+
+        if (user && user.uid) {
+          console.log(`Fetching continue reading for user: ${user.uid}`);
+          const fetchedContinueReading = await getContinueReadingStories(user.uid, 5);
+          setContinueReading(fetchedContinueReading);
+          console.log("Fetched continue reading:", fetchedContinueReading.length, fetchedContinueReading);
+        } else {
+          console.log("No user or user.uid, skipping continue reading.");
+          setContinueReading([]); // Assurer que c'est vide si pas d'utilisateur
+        }
+        
+        console.log("Fetching recommendations.");
+        const fetchedRecommendations = await getPopularStories(10);
+        setRecommendations(fetchedRecommendations);
+        console.log("Fetched recommendations:", fetchedRecommendations.length, fetchedRecommendations);
+
+        // Regrouper les histoires par genre
+        const groupedByGenre: Record<string, Story[]> = {};
+        fetchedAllStories.forEach(story => {
+          if (story.genres && story.genres.length > 0) {
+            const firstGenre = story.genres[0];
+            if (!groupedByGenre[firstGenre]) {
+              groupedByGenre[firstGenre] = [];
+            }
+            groupedByGenre[firstGenre].push(story);
+          }
+        });
+        setStoriesByGenre(groupedByGenre);
+
       } catch (error) {
-        console.error("Failed to fetch stories:", error);
+        console.error("Failed to fetch homepage data:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchStories();
-  }, []);
-
-  const continueReadingStories = stories.slice(0, 3);
-  const mainDisplayStories = stories.slice(3);
+    fetchHomePageData();
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -40,29 +75,67 @@ const HomePage: React.FC = () => {
     );
   }
 
+  console.log("Rendering HomePage. Continue Reading:", continueReading.length, "Recommendations:", recommendations.length);
+
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="homepage-container w-full max-w-full px-4 sm:px-6 lg:px-8">
       <PageHeader title="Home" />
 
-      <section className="mb-10">
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Continue Reading</h2>
-        <ContinueReadingCarousel stories={continueReadingStories} isMobile={isMobile} />
-      </section>
+      {/* Section Continue Reading */}
+      {user && continueReading && continueReading.length > 0 && (
+        <section className="homepage-section mb-8 sm:mb-10">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">Continue Reading</h2>
+          <ContinueReadingCarousel stories={continueReading} isMobile={isMobile} />
+        </section>
+      )}
+      {user && continueReading && continueReading.length === 0 && !isLoading && (
+         <section className="homepage-section mb-8 sm:mb-10">
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">Continue Reading</h2>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">No stories to continue reading at the moment.</p>
+        </section>
+      )}
 
-      <section>
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">All Stories</h2>
-        {mainDisplayStories.length > 0 ? (
-          <div className="grid grid-cols-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
-            {mainDisplayStories.map((story) => (
-              <BookRecommendationCard key={story.id} story={story} />
+      {/* Section Recommandations */}
+      {recommendations && recommendations.length > 0 && (
+        <section className="homepage-section mb-8 sm:mb-10">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">Recommendations</h2>
+          <div className="homepage-scroll-container flex overflow-x-auto space-x-3 sm:space-x-4 py-2 sm:py-4 scrollbar-thin scrollbar-thumb-amber-600 scrollbar-track-amber-200">
+            {recommendations.map((story) => (
+              <div key={story.id} className="homepage-card flex-shrink-0 w-[48%] min-[480px]:w-[32%] sm:w-[30%] md:w-[23%] lg:w-[18%] xl:w-[15%]">
+                <BookRecommendationCard story={story} />
+              </div>
             ))}
           </div>
-        ) : (
-          stories.length === 0 ?
-          <p>No stories available at the moment.</p> :
-          <p>No other stories available at the moment.</p>
-        )}
-      </section>
+        </section>
+      )}
+       {recommendations && recommendations.length === 0 && !isLoading && (
+         <section className="homepage-section mb-8 sm:mb-10">
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">Recommendations</h2>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">No recommendations available at the moment.</p>
+        </section>
+      )}
+
+      {/* Sections par Genre */}
+      {Object.entries(storiesByGenre).map(([genre, genreStories]) => {
+        if (genreStories.length === 0) return null;
+        return (
+          <section key={genre} className="homepage-section mb-8 sm:mb-10">
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4 capitalize">{genre}</h2>
+            <div className="homepage-scroll-container flex overflow-x-auto space-x-3 sm:space-x-4 py-2 sm:py-4 scrollbar-thin scrollbar-thumb-amber-600 scrollbar-track-amber-200">
+              {genreStories.slice(0,10).map((story) => (
+                <div key={story.id} className="homepage-card flex-shrink-0 w-[48%] min-[480px]:w-[32%] sm:w-[30%] md:w-[23%] lg:w-[18%] xl:w-[15%]">
+                  <BookRecommendationCard story={story} />
+                </div>
+              ))}
+            </div>
+            {genreStories.length === 0 && <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">No stories available in this genre at the moment.</p>}
+          </section>
+        );
+      })}
+      
+      {continueReading.length === 0 && recommendations.length === 0 && Object.keys(storiesByGenre).length === 0 && !isLoading && (
+        <p>No stories to display at the moment. Explore and start reading!</p>
+      )}
     </div>
   );
 };
