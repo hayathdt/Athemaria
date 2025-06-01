@@ -25,9 +25,9 @@ const UserStoryCard: React.FC<UserStoryCardProps> = ({
     <Link href={`/story/${id}`} className="block hover:no-underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg transition-shadow hover:shadow-xl">
       <Card className="rounded-lg overflow-hidden transform hover:scale-105 transition-transform duration-300 ease-in-out">
         <img src={imageUrl} alt={title} className={`w-full object-cover ${imageAspectClass}`} />
-        <CardContent className="p-3">
-          <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 truncate">{title}</h3>
-          <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mt-2">
+        <CardContent className="p-2 sm:p-3">
+          <h3 className="text-sm sm:text-md font-semibold text-gray-800 dark:text-gray-200 truncate">{title}</h3>
+          <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-2">
             <div className="flex items-center">
               <Star className="w-4 h-4 text-yellow-500 mr-1" fill="currentColor" />
               <span>{averageRating.toFixed(1)}</span>

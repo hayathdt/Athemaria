@@ -82,14 +82,14 @@ const BookRecommendationCard: React.FC<BookRecommendationCardProps> = ({
           <img
             src={story.coverImage || defaultCoverUrl}
             alt={`Cover for ${story.title}`}
-            className="w-full aspect-[2/3] object-cover"
+            className="w-full aspect-[2/3] sm:aspect-[2/3] object-cover"
             onError={(e) => {
               e.currentTarget.src = defaultCoverUrl;
             }}
           />
-          <CardContent className="p-3">
-            <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 truncate">{story.title}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{story.authorName}</p>
+          <CardContent className="p-2 sm:p-3">
+            <h3 className="text-sm sm:text-md font-semibold text-gray-800 dark:text-gray-200 truncate">{story.title}</h3>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{story.authorName}</p>
           </CardContent>
         </Card>
       </Link>
