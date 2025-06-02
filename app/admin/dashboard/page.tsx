@@ -254,7 +254,7 @@ export default function AdminDashboardPage() {
       } else {
         // Hardcoded admin UID for testing. DO NOT USE IN PRODUCTION.
         // In production, check a 'role' field in the Firestore user profile.
-        const ADMIN_UID = "YOUR_ADMIN_USER_ID_HERE"; // REPLACE THIS
+        const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID || "";
         if (user.uid === ADMIN_UID) {
           setIsAdmin(true);
         } else {
