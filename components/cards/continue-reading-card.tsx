@@ -79,15 +79,6 @@ const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
             <h3 className={`font-semibold ${isMobile ? 'text-sm' : 'text-base'} sm:text-lg text-gray-900 dark:text-gray-200 line-clamp-2 leading-tight`}>{story.title}</h3>
             <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600 dark:text-gray-400 truncate`}>{story.authorName}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Story</p>
-            <div className="space-y-1">
-              <div className={`w-full bg-gray-200 dark:bg-gray-600 rounded-full ${isMobile ? 'h-1.5' : 'h-2'} sm:h-2.5`}>
-                <div
-                  className={`bg-blue-500 dark:bg-blue-400 ${isMobile ? 'h-1.5' : 'h-2'} sm:h-2.5 rounded-full`}
-                  style={{ width: '0%' }}
-                ></div>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-right">0%</p>
-            </div>
           </div>
         </div>
       </Link>

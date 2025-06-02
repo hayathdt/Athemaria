@@ -41,6 +41,7 @@ export default function RootLayout({
     <html lang="en" className={`h-full ${lora.variable} ${inter.variable}`} suppressHydrationWarning={true}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yIDNoNmE0IDQgMCAwIDEgNCA0djE0YTMgMyAwIDAgMC0zLTNIMnoiLz48cGF0aCBkPSJNMjIgM2gtNmE0IDQgMCAwIDAtNCA0djE0YTMgMyAwIDAgMSAzLTNoN3oiLz48L3N2Zz4=" />
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       </head>
       <body className="h-full bg-gray-50 text-gray-800 font-sans">
