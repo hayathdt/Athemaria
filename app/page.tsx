@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link'; // Ajout de l'import pour Link
 import ContinueReadingCarousel from '@/components/ui/continue-reading-carousel';
 import BookRecommendationCard from '@/components/cards/book-recommendation-card';
 import PageHeader from '@/components/layout/page-header';
@@ -108,6 +109,16 @@ const HomePage: React.FC = () => {
         </section>
       )}
 
+      {/* New: View All Stories Section */}
+      <section className="homepage-section mb-8 sm:mb-10 flex justify-center">
+        <Link
+          href="/all-stories"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-3 px-6 rounded-lg transition-colors"
+        >
+          View All Stories
+        </Link>
+      </section>
+
       {/* Sections par Genre */}
       {Object.entries(storiesByGenre).map(([genre, genreStories]) => {
         if (genreStories.length === 0) return null;
@@ -115,7 +126,7 @@ const HomePage: React.FC = () => {
           <section key={genre} className="homepage-section mb-8 sm:mb-10">
             <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4 capitalize">{genre}</h2>
             <div className="homepage-scroll-container flex overflow-x-auto space-x-3 sm:space-x-4 py-2 sm:py-4 scrollbar-thin scrollbar-thumb-amber-600 scrollbar-track-amber-200">
-              {genreStories.slice(0,10).map((story) => (
+              {genreStories.slice(0,20).map((story) => (
                 <div key={story.id} className="homepage-card flex-shrink-0 w-[48%] min-[480px]:w-[32%] sm:w-[30%] md:w-[23%] lg:w-[18%] xl:w-[15%]">
                   <BookRecommendationCard story={story} />
                 </div>
