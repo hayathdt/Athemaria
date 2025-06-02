@@ -21,27 +21,16 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     const fetchHomePageData = async () => {
       setIsLoading(true);
-      console.log("Fetching homepage data. User:", user ? user.uid : 'No user');
       try {
-        // Récupérer toutes les histoires pour le regroupement par genre
-        const fetchedAllStories = await getStories();
-        setAllStories(fetchedAllStories);
-        console.log("Fetched all stories:", fetchedAllStories.length);
+        const [fetchedAllStories, fetchedContinueReading, fetchedRecommendations] = await Promise.all([
+          getStories(),
+          user && user.uid ? getContinueReadingStories(user.uid, 5) : Promise.resolve([]),
+          getPopularStories(10)
+        ]);
 
-        if (user && user.uid) {
-          console.log(`Fetching continue reading for user: ${user.uid}`);
-          const fetchedContinueReading = await getContinueReadingStories(user.uid, 5);
-          setContinueReading(fetchedContinueReading);
-          console.log("Fetched continue reading:", fetchedContinueReading.length, fetchedContinueReading);
-        } else {
-          console.log("No user or user.uid, skipping continue reading.");
-          setContinueReading([]); // Assurer que c'est vide si pas d'utilisateur
-        }
-        
-        console.log("Fetching recommendations.");
-        const fetchedRecommendations = await getPopularStories(10);
+        setAllStories(fetchedAllStories);
+        setContinueReading(fetchedContinueReading as Story[]);
         setRecommendations(fetchedRecommendations);
-        console.log("Fetched recommendations:", fetchedRecommendations.length, fetchedRecommendations);
 
         // Regrouper les histoires par genre
         const groupedByGenre: Record<string, Story[]> = {};
@@ -58,6 +47,11 @@ const HomePage: React.FC = () => {
 
       } catch (error) {
         console.error("Failed to fetch homepage data:", error);
+        // S'assurer que les états sont réinitialisés en cas d'erreur pour éviter des états incohérents
+        setAllStories([]);
+        setContinueReading([]);
+        setRecommendations([]);
+        setStoriesByGenre({});
       } finally {
         setIsLoading(false);
       }
@@ -75,7 +69,6 @@ const HomePage: React.FC = () => {
     );
   }
 
-  console.log("Rendering HomePage. Continue Reading:", continueReading.length, "Recommendations:", recommendations.length);
 
   return (
     <div className="homepage-container w-full max-w-full px-4 sm:px-6 lg:px-8">
