@@ -317,7 +317,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50/50 via-white to-white dark:from-amber-950/30 dark:via-gray-900 dark:to-gray-900">
-      <div className="container relative mx-auto px-4 py-8">
+      <div className="container relative mx-auto px-2 sm:px-4 py-4 md:py-6">
         {/* Decorative elements */}
         <div
           className="absolute inset-0 pointer-events-none"
@@ -446,7 +446,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
             )}
 
             {/* Story Content / Chapter Content */}
-            <div className="prose prose-amber dark:prose-invert max-w-none mb-8">
+            <div className="prose prose-sm sm:prose-base prose-amber dark:prose-invert max-w-none mb-8">
               {currentChapter && currentChapter.content ? (
                 currentChapter.content.split("\n").map((paragraph, index) => (
                   <p
@@ -465,7 +465,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
 
             {/* Chapter Navigation Buttons */}
             {totalChapters > 0 && (
-              <div className="flex justify-between items-center mt-8 mb-8">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-8 mb-8">
                 <Button
                   onClick={() => setCurrentChapterIndex(prev => prev - 1)}
                   disabled={currentChapterIndex === 0}
