@@ -11,3 +11,15 @@ body {
     text-wrap: balance;
   }
 }
+
+@media (max-width: 767px) {
+  .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  .prose {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+}
