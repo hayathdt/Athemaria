@@ -5,7 +5,7 @@ import { useDefaultCover } from '@/lib/hooks/use-default-cover';
 interface StoryCardProps {
   story: Story;
   status?: 'nouveau' | 'in-progress' | 'termine';
-  progress?: number; // Optional, 0-100
+  progress?: number;
 }
 
 const StoryCard: React.FC<StoryCardProps> = ({ story, status, progress }) => {
@@ -25,8 +25,8 @@ const StoryCard: React.FC<StoryCardProps> = ({ story, status, progress }) => {
         {status === 'nouveau' && (
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-xs font-semibold bg-blue-100 text-blue-600 px-2 py-1 rounded-full">NEW</span> {/* Translated from "NOUVEAU" */}
-              <p className="text-sm text-gray-500 mt-1">Completed</p> {/* Translated from "Terminé" */}
+              <span className="text-xs font-semibold bg-blue-100 text-blue-600 px-2 py-1 rounded-full">NEW</span> 
+              <p className="text-sm text-gray-500 mt-1">Completed</p> 
             </div>
             <i className="material-icons text-gray-400">more_horiz</i>
           </div>
@@ -47,7 +47,7 @@ const StoryCard: React.FC<StoryCardProps> = ({ story, status, progress }) => {
         )}
         {status === 'termine' && (
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-green-600">COMPLETED</span> {/* Translated from "TERMINÉ" */}
+            <span className="text-sm font-semibold text-green-600">COMPLETED</span>
             <i className="material-icons text-gray-400">more_horiz</i>
           </div>
         )}

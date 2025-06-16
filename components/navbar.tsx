@@ -32,7 +32,7 @@ export default function Navbar() {
             >
               <BookOpen className="h-6 w-6 text-amber-700 dark:text-amber-300 transition-transform group-hover:scale-110 mr-2" />
               <span className="text-xl font-serif font-medium text-amber-900 dark:text-amber-100">
-                WriteReadHub
+                Athemaria
               </span>
             </Link>
           </div>

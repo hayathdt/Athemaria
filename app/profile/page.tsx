@@ -6,17 +6,17 @@ import {
   createUserProfile,
   getUserProfile,
   updateUserProfile,
-  getUserStories, // Import getUserStories
+  getUserStories, 
 } from "@/lib/firebase/firestore";
-import { uploadAvatar, deleteFile } from "@/lib/firebase/storage"; // Ajout des imports pour l'avatar
-import type { UserProfile, UserStory } from "@/lib/types"; // Import UserStory
+import { uploadAvatar, deleteFile } from "@/lib/firebase/storage"; 
+import type { UserProfile, UserStory } from "@/lib/types"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import AuthCheck from "@/components/auth-check";
 import { useToast } from "@/components/ui/use-toast";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"; // Import Tabs components
-import UserStoryCard from "@/components/cards/user-story-card"; // Import UserStoryCard
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"; 
+import UserStoryCard from "@/components/cards/user-story-card";
 import PageHeader from "@/components/layout/page-header";
 
 export default function ProfilePage() {
@@ -26,10 +26,10 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'stories'>('profile'); // New state for active tab
-  const [userStories, setUserStories] = useState<UserStory[]>([]); // New state for user stories
-  const [currentPage, setCurrentPage] = useState(1); // New state for pagination
-  const [storiesPerPage] = useState(6); // Number of stories per page
+  const [activeTab, setActiveTab] = useState<'profile' | 'stories'>('profile');
+  const [userStories, setUserStories] = useState<UserStory[]>([]); 
+  const [currentPage, setCurrentPage] = useState(1); 
+  const [storiesPerPage] = useState(6); 
 
   // États pour l'upload d'avatar
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
@@ -42,7 +42,7 @@ export default function ProfilePage() {
     x: "",
     instagram: "",
     tiktok: "",
-    website: "", // Add website to formData
+    website: "",
   });
 
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function ProfilePage() {
             x: userProfile.socialLinks?.x || "",
             instagram: userProfile.socialLinks?.instagram || "",
             tiktok: userProfile.socialLinks?.tiktok || "",
-            website: userProfile.website || "", // Set website from profile
+            website: userProfile.website || "",
           });
         }
       }
@@ -116,7 +116,7 @@ export default function ProfilePage() {
           instagram: formData.instagram,
           tiktok: formData.tiktok,
         },
-        website: formData.website, // Include website from formData
+        website: formData.website,
       };
 
       try {
@@ -166,8 +166,7 @@ export default function ProfilePage() {
       if (profile.avatar && profile.avatar !== "/placeholder-user.jpg" && profile.avatar.includes("firebasestorage.googleapis.com")) {
         try {
           const url = new URL(profile.avatar);
-          const pathName = url.pathname; // e.g., /v0/b/your-bucket/o/avatars%2FuserId.jpg
-          // Extrait le chemin encodé après /o/
+          const pathName = url.pathname; 
           const encodedPath = pathName.substring(pathName.indexOf('/o/') + 3);
           // Décode le chemin pour obtenir le chemin réel dans storage
           const decodedPath = decodeURIComponent(encodedPath);
@@ -247,7 +246,6 @@ export default function ProfilePage() {
                       alt="Profile"
                       className="w-full h-full object-cover transition-opacity group-hover:opacity-50"
                     />
-                    {/* Overlay et icône pour l'upload, visible au survol */}
                     <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 opacity-0 group-hover:opacity-100">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
@@ -264,7 +262,7 @@ export default function ProfilePage() {
                 onChange={(e) => {
                   if (e.target.files?.[0]) {
                     const file = e.target.files[0];
-                    // Vérification de la taille du fichier (ex: max 5MB)
+                    // Vérification de la taille du fichier
                     if (file.size > 5 * 1024 * 1024) {
                         toast({
                             title: "Fichier trop volumineux",
@@ -279,7 +277,6 @@ export default function ProfilePage() {
                     const reader = new FileReader();
                     reader.onloadend = () => setAvatarPreview(reader.result as string);
                     reader.readAsDataURL(file);
-                    // L'upload est déclenché ici, après la sélection et la prévisualisation
                     handleAvatarUpload(file);
                   }
                 }}

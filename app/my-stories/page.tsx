@@ -144,13 +144,13 @@ const MyStoriesPage: React.FC = () => {
     }
   };
 
-  // Calculate pagination for active stories
+
   const indexOfLastStory = currentPage * storiesPerPage;
   const indexOfFirstStory = indexOfLastStory - storiesPerPage;
   const currentStories = userStories.slice(indexOfFirstStory, indexOfLastStory);
   const totalPages = Math.ceil(userStories.length / storiesPerPage);
 
-  // Calculate pagination for deleted stories
+
   const indexOfLastDeletedStory = currentDeletedPage * storiesPerPage;
   const indexOfFirstDeletedStory = indexOfLastDeletedStory - storiesPerPage;
   const currentDeletedStories = deletedStories.slice(indexOfFirstDeletedStory, indexOfLastDeletedStory);

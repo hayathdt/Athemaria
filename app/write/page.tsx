@@ -4,11 +4,11 @@ import { useState, useEffect, ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { createStory, updateStory, getStory } from "@/lib/firebase/firestore";
-import { Chapter } from "@/lib/types"; // Import Chapter type
-import { v4 as uuidv4 } from "uuid"; // Import uuid
+import { Chapter } from "@/lib/types"; 
+import { v4 as uuidv4 } from "uuid"; 
 import Editor from "../create-story/editor";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; // Import Input for chapter title
+import { Input } from "@/components/ui/input"; 
 import { AlertCircle, BookOpen, Save, PlusCircle, Trash2, ArrowUp, ArrowDown, Upload } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import AuthCheck from "@/components/auth-check";
@@ -18,7 +18,7 @@ import { getDefaultCoverUrlSync } from "@/lib/hooks/use-default-cover";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function WritePage() {
-  // const [content, setContent] = useState(""); // Removed content state
+
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState<number | null>(
     null
@@ -26,19 +26,17 @@ export default function WritePage() {
   const [currentChapterTitle, setCurrentChapterTitle] = useState<string>("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  // const [story, setStory] = useState<any>(null); // Replaced by individual metadata states
 
-  // New state variables for story metadata
+
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
-  const [coverImage, setCoverImage] = useState<string>(""); // Stores the current cover image URL (loaded or manually entered)
-  const [initialCoverImage, setInitialCoverImage] = useState<string>(""); // Stores the initially loaded cover image URL
+  const [coverImage, setCoverImage] = useState<string>("");
+  const [initialCoverImage, setInitialCoverImage] = useState<string>("");
   const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
   const [coverFilePreview, setCoverFilePreview] = useState<string | null>(null);
-  const [storyGenres, setStoryGenres] = useState<string[]>([]); // Holds the actual story genres
-  const [storyTags, setStoryTags] = useState<string[]>([]);   // Holds the actual story tags
-
-  // New state variables for UI interaction with genres and tags
+  const [storyGenres, setStoryGenres] = useState<string[]>([]);
+  const [storyTags, setStoryTags] = useState<string[]>([]);
+ 
   const [genre1, setGenre1] = useState<string>("");
   const [genre2, setGenre2] = useState<string>("");
   const [genre3, setGenre3] = useState<string>("");
@@ -56,13 +54,12 @@ export default function WritePage() {
         try {
           const loadedStory = await getStory(storyId);
           if (loadedStory && loadedStory.authorId === user?.uid) {
-            // setStory(loadedStory); // No longer storing the whole story object in one state
 
             setTitle(loadedStory.title || "");
             setDescription(loadedStory.description || "");
             const loadedCover = loadedStory.coverImage || "";
             setCoverImage(loadedCover);
-            setInitialCoverImage(loadedCover); // Store initial cover
+            setInitialCoverImage(loadedCover);
             const currentGenres = loadedStory.genres || [];
             setStoryGenres(currentGenres);
             setGenre1(currentGenres[0] || "");
@@ -80,7 +77,7 @@ export default function WritePage() {
               const defaultChapter: Chapter = {
                 id: uuidv4(),
                 title: "Chapter 1",
-                content: "", // Old loadedStory.content is not applicable here directly
+                content: "",
                 order: 1,
               };
               setChapters([defaultChapter]);
@@ -98,9 +95,9 @@ export default function WritePage() {
     }
   }, [storyId, user?.uid]);
 
-  // Effect for initializing a new story (no storyId)
+
   useEffect(() => {
-    if (!storyId && user?.uid) { // For new stories
+    if (!storyId && user?.uid) {
       const pendingStoryString = localStorage.getItem("pendingStory");
       if (pendingStoryString) {
         const pendingStoryData = JSON.parse(pendingStoryString);
@@ -108,7 +105,7 @@ export default function WritePage() {
         setDescription(pendingStoryData.description || "");
         const pendingCover = pendingStoryData.coverImage || "";
         setCoverImage(pendingCover);
-        setInitialCoverImage(pendingCover); // Store initial cover from pending
+        setInitialCoverImage(pendingCover);
         const currentGenres = pendingStoryData.genres || [];
         setStoryGenres(currentGenres);
         setGenre1(currentGenres[0] || "");
@@ -119,9 +116,7 @@ export default function WritePage() {
         setTagsInput(currentTags.join(", "));
       }
 
-      // Initialize with a default chapter if chapters aren't already set (e.g. from pendingStoryData or if it was empty)
-      // This part of the logic might need adjustment if pendingStoryData could also contain chapters.
-      // For now, assuming chapters are always initialized fresh or loaded from DB for existing stories.
+
       if (chapters.length === 0) {
       const defaultChapter: Chapter = {
         id: uuidv4(),
@@ -134,13 +129,13 @@ export default function WritePage() {
       setCurrentChapterTitle(defaultChapter.title);
     }
     }
-  }, [storyId, user?.uid, chapters.length]); // Added chapters.length to dependencies
+  }, [storyId, user?.uid, chapters.length]);
 
   const handleCoverFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedCoverFile(file);
-      setCoverImage(""); // Clear any manually entered URL if a file is chosen
+      setCoverImage("");
       const reader = new FileReader();
       reader.onloadend = () => {
         setCoverFilePreview(reader.result as string);
@@ -165,44 +160,38 @@ export default function WritePage() {
     setIsSaving(true);
     setError("");
 
-    let finalCoverImageUrl = initialCoverImage || getDefaultCoverUrlSync(); // Start with initial or default
-    let newCoverPath: string | null = null; // To store the path of the newly uploaded file
+    let finalCoverImageUrl = initialCoverImage || getDefaultCoverUrlSync();
+    let newCoverPath: string | null = null;
 
-    // TODO: Implement storing coverImagePath in Firestore to reliably delete old covers.
-    // For now, new uploads will create new files, potentially orphaning old ones if not default.
-    // const oldCoverPath = story?.coverImagePath; // Assuming story object has coverImagePath
+
 
     try {
       if (selectedCoverFile) {
-        // If a new file is selected, upload it
-        const uniquePathSegment = storyId || `${user.uid}-${Date.now()}`;
-        // The uploadStoryCover function in storage.ts will append the extension.
-        // It expects the storyId (or a unique identifier) to construct the path.
-        finalCoverImageUrl = await uploadStoryCover(selectedCoverFile, uniquePathSegment);
-        // newCoverPath = `covers/${uniquePathSegment}.${selectedCoverFile.name.split('.').pop()}`; // Store this path
 
-        // Attempt to delete old image if it was a Firebase Storage URL and not the default
-        // This is a simplified deletion attempt and has limitations without storing the full path.
+        const uniquePathSegment = storyId || `${user.uid}-${Date.now()}`;
+
+        finalCoverImageUrl = await uploadStoryCover(selectedCoverFile, uniquePathSegment);
+
         if (initialCoverImage && initialCoverImage.includes("firebasestorage.googleapis.com") && initialCoverImage !== getDefaultCoverUrlSync()) {
             try {
                 const url = new URL(initialCoverImage);
-                const pathName = url.pathname; // e.g., /v0/b/your-bucket/o/covers%2FstoryId-timestamp.jpg
+                const pathName = url.pathname;
                 const encodedPath = pathName.substring(pathName.indexOf('/o/') + 3);
                 const decodedPath = decodeURIComponent(encodedPath);
-                if (decodedPath && !decodedPath.includes("placeholders/cover.png")) { // Don't delete default placeholder
+                if (decodedPath && !decodedPath.includes("placeholders/cover.png")) {
                     await deleteFile(decodedPath);
                 }
             } catch (deleteError) {
                 console.warn("Could not delete old cover image:", deleteError);
-                // Non-fatal, continue with saving the new image
+
             }
         }
 
       } else if (coverImage !== initialCoverImage) {
-        // If no new file, but the URL input field was changed
+
         finalCoverImageUrl = coverImage || getDefaultCoverUrlSync();
       }
-      // If no file selected and URL field not changed, finalCoverImageUrl remains initialCoverImage or default
+
 
       const chaptersWithTitles = chapters.map((chap, index) => ({
         ...chap,
@@ -244,7 +233,7 @@ export default function WritePage() {
           status,
           updatedAt: new Date().toISOString(),
           coverImage: finalCoverImageUrl,
-          // coverImagePath: newCoverPath || story?.coverImagePath, // Store new path or keep old if no new upload
+
         };
         await updateStory(currentStoryId, storyUpdateData);
       } else {
@@ -259,7 +248,7 @@ export default function WritePage() {
           authorName: user.displayName || "Anonymous",
           createdAt: new Date().toISOString(),
           coverImage: finalCoverImageUrl,
-          // coverImagePath: newCoverPath, // Store path for new story
+
         };
         currentStoryId = await createStory(newStoryData);
       }
@@ -278,13 +267,13 @@ export default function WritePage() {
     <AuthCheck>
       <div className="min-h-screen bg-gradient-to-b from-amber-50/50 via-white to-white dark:from-amber-950/30 dark:via-gray-900 dark:to-gray-900">
         <div className="relative">
-          {/* Decorative elements */}
+
           <div className="fixed inset-0 pointer-events-none" aria-hidden="true">
             <div className="absolute left-0 top-1/4 h-[300px] w-[400px] rounded-full bg-gradient-to-br from-amber-200/20 to-orange-100/10 blur-3xl dark:from-amber-900/10 dark:to-orange-900/5" />
             <div className="absolute right-0 bottom-1/4 h-[250px] w-[350px] rounded-full bg-gradient-to-br from-orange-100/20 to-amber-200/10 blur-3xl dark:from-orange-900/10 dark:to-amber-900/5" />
           </div>
 
-          {/* Sticky header */}
+
           <header className="sticky top-0 z-10 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border-b border-amber-200/30 dark:border-amber-800/30">
             <div className="container mx-auto px-4 py-4">
               <div className="flex justify-between items-center">
@@ -325,7 +314,7 @@ export default function WritePage() {
                 </Alert>
               )}
 
-              {/* Story Metadata Inputs */}
+
               <div className="mb-8 p-6 rounded-3xl bg-white/70 dark:bg-gray-900/70 backdrop-blur-lg border border-amber-200/40 dark:border-amber-800/40 shadow-xl space-y-6">
                 <h2 className="text-xl font-semibold text-amber-800 dark:text-amber-200 font-serif">Story Details</h2>
                 
@@ -419,16 +408,16 @@ export default function WritePage() {
                       <img src={coverFilePreview} alt="New cover preview" className="max-h-40 w-auto rounded-lg object-cover border dark:border-gray-700" />
                     </div>
                   )}
-                  {!selectedCoverFile && coverImage && ( // Show current/manual URL input if no file selected but a coverImage URL exists
+                  {!selectedCoverFile && coverImage && (
                     <>
                       <p className="text-xs text-center text-amber-700/70 dark:text-amber-300/70 my-1">OR Current / Manual URL:</p>
                       <Input
                         id="coverImageUrlInput"
                         type="url"
-                        value={coverImage} // This state holds the current URL or manually entered one
+                        value={coverImage}
                         onChange={(e) => {
                             setCoverImage(e.target.value);
-                            setSelectedCoverFile(null); // Clear selected file if URL is typed/changed
+                            setSelectedCoverFile(null);
                             setCoverFilePreview(null);
                         }}
                         placeholder="Enter image URL"
@@ -437,7 +426,7 @@ export default function WritePage() {
                       />
                     </>
                   )}
-                   {!selectedCoverFile && !coverImage && ( // If no file and no current URL, show placeholder for manual URL
+                   {!selectedCoverFile && !coverImage && (
                      <>
                         <p className="text-xs text-center text-amber-700/70 dark:text-amber-300/70 my-1">OR</p>
                         <Input
@@ -462,7 +451,7 @@ export default function WritePage() {
                 </div>
               </div>
 
-              {/* Chapter Management UI */}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-1 space-y-4">
                   <h2 className="text-xl font-semibold text-amber-800 dark:text-amber-200 font-serif">Chapters</h2>
@@ -528,18 +517,17 @@ export default function WritePage() {
                       />
                        <div className="flex space-x-2 mb-2">
                         <Button
-                          onClick={() => { // Delete Chapter
+                          onClick={() => {
                             if (chapters.length > 1 && currentChapterIndex !== null) {
                               const updatedChapters = chapters.filter((_, index) => index !== currentChapterIndex)
-                                .map((chap, idx) => ({ ...chap, order: idx + 1 })); // Re-order
+                                .map((chap, idx) => ({ ...chap, order: idx + 1 }));
                               setChapters(updatedChapters);
                               if (updatedChapters.length > 0) {
                                 const newIndex = Math.max(0, currentChapterIndex -1);
                                 setCurrentChapterIndex(newIndex);
                                 setCurrentChapterTitle(updatedChapters[newIndex].title);
                               } else {
-                                // This case should ideally not be reached if we enforce min 1 chapter
-                                // Or, re-initialize with a default chapter
+
                                 const defaultChapter: Chapter = { id: uuidv4(), title: "Chapter 1", content: "", order: 1 };
                                 setChapters([defaultChapter]);
                                 setCurrentChapterIndex(0);
@@ -554,14 +542,14 @@ export default function WritePage() {
                           <Trash2 className="w-4 h-4 mr-1 text-foreground" />
                           <span className="text-foreground">Delete</span>
                         </Button>
-                         <Button // Move Up
+                         <Button
                             onClick={() => {
                                 if (currentChapterIndex !== null && currentChapterIndex > 0) {
                                     const newChapters = [...chapters];
                                     const temp = newChapters[currentChapterIndex];
                                     newChapters[currentChapterIndex] = newChapters[currentChapterIndex - 1];
                                     newChapters[currentChapterIndex - 1] = temp;
-                                    // Update orders
+
                                     newChapters[currentChapterIndex].order = currentChapterIndex + 1;
                                     newChapters[currentChapterIndex - 1].order = currentChapterIndex;
                                     setChapters(newChapters);
@@ -575,17 +563,17 @@ export default function WritePage() {
                             <ArrowUp className="w-4 h-4 mr-1 text-foreground" />
                             <span className="text-foreground">Up</span>
                         </Button>
-                        <Button // Move Down
+                        <Button
                             onClick={() => {
                                 if (currentChapterIndex !== null && currentChapterIndex < chapters.length - 1) {
                                     const newChapters = [...chapters];
                                     const temp = newChapters[currentChapterIndex];
                                     newChapters[currentChapterIndex] = newChapters[currentChapterIndex + 1];
                                     newChapters[currentChapterIndex + 1] = temp;
-                                    // Update orders
+
                                     newChapters[currentChapterIndex].order = currentChapterIndex + 1;
                                     newChapters[currentChapterIndex + 1].order = currentChapterIndex + 2;
-                                     // Correct all orders after swap
+
                                     const reorderedChapters = newChapters.map((chap, idx) => ({ ...chap, order: idx + 1 }));
                                     setChapters(reorderedChapters);
                                     setCurrentChapterIndex(currentChapterIndex + 1);
@@ -622,7 +610,7 @@ export default function WritePage() {
                   </div>
                 </div>
               </div>
-              {/* Decorative book icon */}
+
               <div className="mt-8 flex justify-center opacity-60">
                 <BookOpen className="h-8 w-8 text-amber-800/30 dark:text-amber-200/30" />
               </div>

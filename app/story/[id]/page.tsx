@@ -9,15 +9,15 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StarRating } from '@/components/ui/star-rating';
-import { Badge } from "@/components/ui/badge"; // Import Badge component
-import { ArrowLeft, Book, ChevronLeft, ChevronRight, FileEdit } from "lucide-react"; // Added FileEdit
+import { Badge } from "@/components/ui/badge"; 
+import { ArrowLeft, Book, ChevronLeft, ChevronRight, FileEdit } from "lucide-react";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; // Import Select components
+} from "@/components/ui/select";
 
 export default function StoryPage({ params }: { params: { id: string } }) {
   const { id: storyId } = params; 
@@ -25,10 +25,10 @@ export default function StoryPage({ params }: { params: { id: string } }) {
   const { user, loading: authLoading } = useAuth();
 
   const [story, setStory] = useState<Story | null>(null);
-  const [currentChapterIndex, setCurrentChapterIndex] = useState<number>(0); // State for current chapter
+  const [currentChapterIndex, setCurrentChapterIndex] = useState<number>(0); 
   const [comments, setComments] = useState<Comment[]>([]);
   const [averageRating, setAverageRating] = useState<number>(0);
-  const [ratingCount, setRatingCount] = useState<number>(0); // Added ratingCount state
+  const [ratingCount, setRatingCount] = useState<number>(0);
   const [userRating, setUserRating] = useState<Rating | null>(null);
   const [newComment, setNewComment] = useState<string>("");
   const [isLoadingStory, setIsLoadingStory] = useState<boolean>(true);
@@ -46,7 +46,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
   const [isReadLaterLoading, setIsReadLaterLoading] = useState<boolean>(false);
 
 
-  // Fetch initial story data
+
   useEffect(() => {
     async function fetchStoryDetails() {
       setIsLoadingStory(true);
@@ -54,20 +54,20 @@ export default function StoryPage({ params }: { params: { id: string } }) {
         const storyData = await getStory(storyId);
         if (storyData) {
           setStory(storyData);
-          // Record story read if user is logged in
+
           if (user && user.uid) {
             recordStoryRead(user.uid, storyId).catch(err => {
               console.error("Failed to record story read:", err);
-              // Non-critical error, so don't block UI
+
             });
           }
         } else {
-          notFound(); // Or handle as an error state
+          notFound(); 
         }
       } catch (error) {
         console.error("Failed to fetch story:", error);
-        // Handle error (e.g., show error message)
-        notFound(); // Or set an error state
+
+        notFound();
       }
       setIsLoadingStory(false);
     }
@@ -76,23 +76,23 @@ export default function StoryPage({ params }: { params: { id: string } }) {
     }
   }, [storyId]);
 
-  // Fetch comments and average rating
+
   const fetchCommentsAndRatings = useCallback(async () => {
     if (!storyId) return;
     setIsLoadingComments(true);
-    setIsLoadingRating(true); // For average rating
+    setIsLoadingRating(true);
     try {
       const fetchedComments = await getComments(storyId);
       setComments(fetchedComments);
-      const ratingStats: RatingStats = await getAverageRating(storyId); // Updated this block
+      const ratingStats: RatingStats = await getAverageRating(storyId);
       setAverageRating(ratingStats.average);
       setRatingCount(ratingStats.count);
     } catch (error) {
       console.error("Failed to fetch comments or average rating:", error);
-      // Consider setting default/error states for averageRating and ratingCount here too
+
       setAverageRating(0);
       setRatingCount(0);
-      // Handle error
+
     }
     setIsLoadingComments(false);
     setIsLoadingRating(false);
@@ -102,10 +102,10 @@ export default function StoryPage({ params }: { params: { id: string } }) {
     fetchCommentsAndRatings();
   }, [fetchCommentsAndRatings]);
 
-  // Fetch user-specific rating
+
   const fetchUserRating = useCallback(async () => {
     if (!storyId || !user || !user.uid) return;
-    setIsLoadingRating(true); // Also indicates loading for user-specific rating
+    setIsLoadingRating(true);
     try {
       const ratingData = await getRating(storyId, user.uid);
       setUserRating(ratingData);
@@ -136,7 +136,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
     }
   }, [user, authLoading, storyId]);
 
-  // Check read later status
+
   useEffect(() => {
     const checkReadLaterStatus = async () => {
       if (user && storyId) {
@@ -153,31 +153,31 @@ export default function StoryPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     console.log("[page.tsx] Comments state updated. New count:", comments.length);
     if (comments.length > 0) {
-      // Log a snippet of the last comment to see if it's the new one
-      // This assumes comments are ordered newest first, or you might need to find the newest one by date
-      const lastComment = comments[0]; // Assuming newest is first
+      
+      
+      const lastComment = comments[0];
       console.log("[page.tsx] Last comment (potentially newest):", JSON.stringify({text: lastComment.text, userName: lastComment.userName, createdAt: lastComment.createdAt }, null, 2));
     }
-  }, [comments]); // Dependency array includes 'comments'
+  }, [comments]);
 
 
   const handleSetRating = async (value: 1 | 2 | 3 | 4 | 5) => {
     if (!user || !user.uid || !storyId) {
-      // Optionally, prompt user to log in
+
       console.log("User not logged in or storyId missing");
       return;
     }
     setIsSubmittingRating(true);
     try {
       await setRating({ storyId, userId: user.uid, value });
-      // Refetch user rating and average rating
+  
       fetchUserRating();
-      const updatedRatingStats: RatingStats = await getAverageRating(storyId); // Updated this block
+      const updatedRatingStats: RatingStats = await getAverageRating(storyId);
       setAverageRating(updatedRatingStats.average);
       setRatingCount(updatedRatingStats.count);
     } catch (error) {
       console.error("Failed to set rating:", error);
-      // Handle error (e.g., show toast notification)
+
     }
     setIsSubmittingRating(false);
   };
@@ -192,7 +192,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
       storyId,
       userId: user.uid,
       userName: user.displayName || "Anonymous",
-      userAvatar: user.photoURL || null, // Ensure this line is updated
+      userAvatar: user.photoURL || null,
       text: newComment.trim(),
     };
     console.log("[page.tsx] Attempting to submit comment. Payload:", JSON.stringify(commentPayload, null, 2));
@@ -204,9 +204,9 @@ export default function StoryPage({ params }: { params: { id: string } }) {
       setNewComment(""); // Clear input field
       console.log("[page.tsx] Fetching comments and ratings after submission...");
       await fetchCommentsAndRatings(); // Refetch comments
-      console.log("[page.tsx] Comments and ratings fetched. Current local comments count:", comments.length); // Log current comments count before potential re-render with new ones.
-                                                                                                          // Note: `comments.length` here might not yet reflect the *very latest* fetch due to state update timing.
-                                                                                                          // A useEffect watching `comments` would be better to see its final state.
+      console.log("[page.tsx] Comments and ratings fetched. Current local comments count:", comments.length);
+
+
     } catch (error) {
       console.error("[page.tsx] Failed to submit comment via handleCommentSubmit. Error caught from createComment:", error);
       if (error instanceof Error) {
@@ -216,7 +216,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
           console.error("[page.tsx] Error stack:", error.stack);
         }
       }
-      // Optionally, display a user-friendly error message here using a toast or state variable
+
     }
     setIsSubmittingComment(false);
   };
@@ -231,13 +231,13 @@ export default function StoryPage({ params }: { params: { id: string } }) {
       await updateComment(commentId, editText.trim(), user.uid);
       setEditingCommentId(null);
       setEditText("");
-      // It's important that fetchCommentsAndRatings re-fetches the data
-      // and updates the 'comments' state, which will trigger a re-render.
+
+
       await fetchCommentsAndRatings(); 
       console.log(`[page.tsx] Comment ${commentId} updated successfully.`);
     } catch (error) {
       console.error(`[page.tsx] Failed to update comment ${commentId}:`, error);
-      // Optionally, display a user-friendly error message
+
     }
     setIsSubmittingEdit(false);
   };
@@ -245,7 +245,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
   const handleDeleteComment = async (commentId: string) => {
     if (!user || !user.uid) {
       console.log("[page.tsx] User not logged in for comment delete.");
-      // Optionally, prompt to log in or show a message
+
       return;
     }
 
@@ -256,14 +256,13 @@ export default function StoryPage({ params }: { params: { id: string } }) {
     setIsDeletingCommentId(commentId);
     try {
       await deleteComment(commentId, user.uid);
-      // Refresh comments list by refetching
+
       await fetchCommentsAndRatings();
       console.log(`[page.tsx] Comment ${commentId} deleted successfully.`);
-      // If setComments(prevComments => prevComments.filter(c => c.id !== commentId)); was used,
-      // no need to await fetchCommentsAndRatings(), but consistency might be lost.
+
     } catch (error) {
       console.error(`[page.tsx] Failed to delete comment ${commentId}:`, error);
-      // Optionally, display a user-friendly error message
+
     }
     setIsDeletingCommentId(null);
   };
@@ -303,12 +302,12 @@ export default function StoryPage({ params }: { params: { id: string } }) {
   };
 
   if (isLoadingStory || authLoading) {
-    // Basic loading state
+
     return <div className="container mx-auto px-4 py-8 text-center">Loading story...</div>;
   }
 
   if (!story) {
-    // This should be caught by notFound() in useEffect, but as a fallback:
+
     return <div className="container mx-auto px-4 py-8 text-center">Story not found.</div>;
   }
 
@@ -338,7 +337,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
                 Back to stories
               </Button>
             </Link>
-            {/* Edit Story Button for Author */}
+
             {user && story && user.uid === story.authorId && (
               <Link href={`/write?id=${story.id}`} passHref>
                 <Button variant="outline" className="text-amber-900 dark:text-amber-100 hover:bg-amber-100/50 dark:hover:bg-amber-900/50 border-amber-300 dark:border-amber-700">
@@ -350,7 +349,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
           </div>
 
           <div className="rounded-3xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-amber-200/30 dark:border-amber-800/30 shadow-2xl p-8 mb-8">
-            {/* Story Title and Meta */}
+
             <div className="mb-8">
               <div className="flex items-start justify-between mb-4">
                 <h1 className="font-serif text-4xl font-medium text-amber-900 dark:text-amber-100 flex-1">
@@ -403,7 +402,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
               </p>
             </div>
 
-            {/* Tags Display */}
+
             {story.tags && story.tags.length > 0 && (
               <div className="mb-6">
                 <h4 className="text-md font-semibold text-amber-800 dark:text-amber-200 mb-2">Tags:</h4>
@@ -417,7 +416,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
               </div>
             )}
             
-            {/* Table of Contents Dropdown */}
+
             {totalChapters > 0 && (
               <div className="mb-6">
                 <Select
@@ -438,14 +437,14 @@ export default function StoryPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {/* Chapter Title */}
+
             {currentChapter && (
               <h2 className="font-serif text-3xl font-medium text-amber-800 dark:text-amber-200 mb-4">
                 {currentChapter.title || `Chapter ${currentChapterIndex + 1}`}
               </h2>
             )}
 
-            {/* Story Content / Chapter Content */}
+
             <div className="prose prose-sm sm:prose-base prose-amber dark:prose-invert max-w-none mb-8">
               {currentChapter && currentChapter.content ? (
                 currentChapter.content.split("\n").map((paragraph, index) => (
@@ -463,7 +462,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {/* Chapter Navigation Buttons */}
+
             {totalChapters > 0 && (
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-8 mb-8">
                 <Button
@@ -489,7 +488,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
             )}
           </div>
 
-          {/* Ratings Section */}
+
           <div className="rounded-3xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-amber-200/30 dark:border-amber-800/30 shadow-xl p-8 mb-8">
             <h2 className="font-serif text-2xl font-medium text-amber-900 dark:text-amber-100 mb-4">
               Rate this Story
@@ -513,7 +512,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
                         currentRating={userRating?.value || 0}
                         onRate={handleRatingChange}
                         readOnly={isSubmittingRating}
-                        size="h-6 w-6" // Slightly larger for interaction
+                        size="h-6 w-6" 
                       />
                        {userRating && <span className="text-sm text-amber-700/90 dark:text-amber-300/90">({userRating.value}/5)</span>}
                     </div>
@@ -529,7 +528,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
             )}
           </div>
 
-          {/* Comments Section */}
+
           <div className="rounded-3xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-amber-200/30 dark:border-amber-800/30 shadow-xl p-8">
             <h2 className="font-serif text-2xl font-medium text-amber-900 dark:text-amber-100 mb-6">
               Comments ({comments.length})
@@ -557,7 +556,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
                       </div>
 
                       {editingCommentId === comment.id ? (
-                        // EDITING UI for this comment
+
                         <div className="mt-2 space-y-2">
                           <textarea
                             value={editText}
@@ -585,7 +584,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
                           </div>
                         </div>
                       ) : (
-                        // DISPLAY UI for this comment
+
                         <>
                           <p className="text-amber-800 dark:text-amber-200 whitespace-pre-wrap">
                             {comment.text}
@@ -604,7 +603,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDeleteComment(comment.id)}
-                                disabled={isDeletingCommentId === comment.id || isSubmittingEdit || isSubmittingComment} // Disable if this comment is being deleted, or any edit/new comment is submitting.
+                                disabled={isDeletingCommentId === comment.id || isSubmittingEdit || isSubmittingComment} 
                                 className="text-xs px-2 py-1 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 border-red-600/50 hover:border-red-600"
                               >
                                 {isDeletingCommentId === comment.id ? "Deleting..." : "Delete"}
@@ -651,8 +650,8 @@ export default function StoryPage({ params }: { params: { id: string } }) {
           </div>
 
 
-          {/* Decorative book icon */}
-          <div className="flex justify-center opacity-60 mt-12 mb-8"> {/* Added mt-12 */}
+
+          <div className="flex justify-center opacity-60 mt-12 mb-8"> 
             <Book className="h-8 w-8 text-amber-800/30 dark:text-amber-200/30" />
           </div>
         </div>

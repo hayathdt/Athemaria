@@ -463,8 +463,8 @@ export async function createUserProfile(
     const userRef = doc(db, "users", userId);
     const dataWithDefaults = {
       ...profileData,
-      favorites: profileData.favorites || [], // Initialize favorites as empty array if not provided
-      readLater: profileData.readLater || [], // Initialize readLater as empty array if not provided
+      favorites: profileData.favorites || [],
+      readLater: profileData.readLater || [],
     };
     await setDoc(userRef, dataWithDefaults);
   } catch (error) {
@@ -490,8 +490,8 @@ export async function getUserProfile(
         avatar: data.avatar || "",
         displayName: data.displayName,
         email: data.email,
-        favorites: data.favorites || [], // Ensure favorites is always an array
-        readLater: data.readLater || [], // Ensure readLater is always an array
+        favorites: data.favorites || [],
+        readLater: data.readLater || [],
       };
     }
     return null;
@@ -793,8 +793,8 @@ export async function getContinueReadingStories(userId: string, count: number = 
 
 export async function getPopularStories(count: number = 10): Promise<Story[]> {
   try {
-    // Pour l'instant, nous trions par readCount.
-    // Une implémentation plus avancée pourrait prendre en compte la date pour "les plus lus du mois".
+
+
     const storiesQuery = query(
       collection(db, "stories"),
       where("status", "==", "published"), // Uniquement les histoires publiées
@@ -854,7 +854,7 @@ export async function recordStoryRead(userId: string, storyId: string): Promise<
       userId,
       storyId,
       lastReadDate: Timestamp.now().toMillis().toString(),
-    }, { merge: true }); // merge:true pour créer ou mettre à jour
+    }, { merge: true });
 
     // Incrémenter le readCount de l'histoire
     const storyRef = doc(db, "stories", storyId);
@@ -871,6 +871,6 @@ export async function recordStoryRead(userId: string, storyId: string): Promise<
 
   } catch (error) {
     console.error(`Error recording story read for story ${storyId} by user ${userId}: `, error);
-    // Ne pas bloquer l'utilisateur si cela échoue, mais logger l'erreur.
+
   }
 }
