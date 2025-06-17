@@ -1,5 +1,9 @@
 "use client";
 
+// --- IMPORTATIONS ---
+// Ici, on importe toutes les "briques" nécessaires pour construire notre page.
+// Par exemple, `useState` et `useEffect` sont des "Hooks" de React pour gérer l'état et les effets de bord.
+// On importe aussi des composants d'interface (Button, Input) et des fonctions pour interagir avec la base de données (createStory, etc.).
 import { useState, useEffect, ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -17,17 +21,29 @@ import { uploadStoryCover, deleteFile } from "@/lib/firebase/storage";
 import { getDefaultCoverUrlSync } from "@/lib/hooks/use-default-cover";
 import { Textarea } from "@/components/ui/textarea";
 
+// --- COMPOSANT PRINCIPAL : WritePage ---
+// C'est le cœur de notre page d'écriture. Un "composant" en React est un morceau d'interface utilisateur
+// indépendant et réutilisable. Celui-ci gère tout : les détails de l'histoire, les chapitres, la sauvegarde, etc.
 export default function WritePage() {
 
+  // --- ÉTATS DU COMPOSANT (States) ---
+  // Les "états" sont des variables spéciales dans React. Quand leur valeur change,
+  // le composant se met à jour automatiquement pour afficher les nouveautés.
+
+  // Gère la liste de tous les chapitres de l'histoire.
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState<number | null>(
     null
   );
+  // Gère le titre du chapitre en cours d'édition.
   const [currentChapterTitle, setCurrentChapterTitle] = useState<string>("");
+  // Stocke les messages d'erreur à afficher à l'utilisateur.
   const [error, setError] = useState("");
+  // Permet de savoir si une sauvegarde est en cours (pour désactiver les boutons par exemple).
   const [isSaving, setIsSaving] = useState(false);
 
 
+  // États pour les détails généraux de l'histoire (titre, description, etc.).
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [coverImage, setCoverImage] = useState<string>("");
@@ -43,16 +59,26 @@ export default function WritePage() {
   const [tagsInput, setTagsInput] = useState<string>("");
 
 
-  const { user } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const storyId = searchParams.get("id");
+  // --- HOOKS DE NEXT.JS ET D'AUTHENTIFICATION ---
+  // Les "Hooks" sont des fonctions qui nous "accrochent" à des fonctionnalités de React ou de ses frameworks (comme Next.js).
 
+  const { user } = useAuth(); // Récupère les informations de l'utilisateur connecté.
+  const router = useRouter(); // Permet de naviguer entre les pages (redirection).
+  const searchParams = useSearchParams(); // Permet de lire les paramètres dans l'URL (ex: ?id=123).
+  const storyId = searchParams.get("id"); // On récupère l'ID de l'histoire depuis l'URL. S'il existe, on est en mode "édition".
+
+  // --- EFFETS DE BORD (Side Effects) ---
+  // Les `useEffect` permettent d'exécuter du code à des moments précis,
+  // par exemple quand le composant s'affiche ou quand une variable d'état change.
+
+  // Cet effet se déclenche si un `storyId` est trouvé dans l'URL.
+  // Son but est de charger les données d'une histoire existante depuis la base de données (Firebase) pour l'éditer.
   useEffect(() => {
     if (storyId) {
       const loadStory = async () => {
         try {
           const loadedStory = await getStory(storyId);
+          // On vérifie que l'histoire a bien été chargée et que l'utilisateur connecté en est bien l'auteur.
           if (loadedStory && loadedStory.authorId === user?.uid) {
 
             setTitle(loadedStory.title || "");
@@ -69,11 +95,13 @@ export default function WritePage() {
             setStoryTags(currentTags);
             setTagsInput(currentTags.join(", "));
 
+            // Si l'histoire a des chapitres, on les charge.
             if (loadedStory.chapters && loadedStory.chapters.length > 0) {
               setChapters(loadedStory.chapters);
               setCurrentChapterIndex(0);
               setCurrentChapterTitle(loadedStory.chapters[0].title);
             } else {
+              // Sinon, on crée un premier chapitre par défaut pour que l'éditeur ne soit pas vide.
               const defaultChapter: Chapter = {
                 id: uuidv4(),
                 title: "Chapter 1",
@@ -96,8 +124,13 @@ export default function WritePage() {
   }, [storyId, user?.uid]);
 
 
+  // Cet effet s'occupe du cas où l'on crée une nouvelle histoire (pas de `storyId`).
+  // Il s'assure qu'il y a toujours au moins un chapitre pour commencer.
   useEffect(() => {
     if (!storyId && user?.uid) {
+      // Note : Le code pour restaurer une histoire non sauvegardée depuis le localStorage a été retiré
+      // dans les versions plus récentes, mais s'il était là, il tenterait de charger
+      // des données locales pour éviter à l'utilisateur de perdre son travail.
       const pendingStoryString = localStorage.getItem("pendingStory");
       if (pendingStoryString) {
         const pendingStoryData = JSON.parse(pendingStoryString);
@@ -117,6 +150,8 @@ export default function WritePage() {
       }
 
 
+      // S'il n'y a aucun chapitre (par exemple, au premier chargement pour une nouvelle histoire),
+      // on en crée un par défaut pour que l'utilisateur puisse commencer à écrire immédiatement.
       if (chapters.length === 0) {
       const defaultChapter: Chapter = {
         id: uuidv4(),
@@ -131,11 +166,18 @@ export default function WritePage() {
     }
   }, [storyId, user?.uid, chapters.length]);
 
+  // --- GESTIONNAIRES D'ÉVÉNEMENTS (Event Handlers) ---
+  // Ce sont les fonctions qui sont appelées en réponse à une action de l'utilisateur (clic, saisie, etc.).
+
+  // Cette fonction est appelée quand l'utilisateur choisit un fichier pour la couverture de son histoire.
   const handleCoverFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedCoverFile(file);
       setCoverImage("");
+      // On utilise l'API FileReader du navigateur pour lire le fichier image
+      // et créer une URL locale temporaire. Cela permet d'afficher un aperçu de l'image
+      // avant même qu'elle ne soit envoyée sur le serveur.
       const reader = new FileReader();
       reader.onloadend = () => {
         setCoverFilePreview(reader.result as string);
@@ -147,7 +189,12 @@ export default function WritePage() {
     }
   };
 
+  // La fonction `handleSave` est la plus importante. Elle gère la sauvegarde de l'histoire,
+  // que ce soit en tant que brouillon ('draft') ou publiée ('published').
+  // Le mot-clé "async" indique que cette fonction contient des opérations qui peuvent prendre du temps (comme parler à une base de données).
   const handleSave = async (status: "draft" | "published") => {
+    // Vérifications initiales : on s'assure que l'utilisateur est connecté
+    // et que l'histoire a bien des chapitres avant de tenter de sauvegarder.
     if (!user) {
       setError("You must be logged in to save.");
       return;
@@ -160,18 +207,24 @@ export default function WritePage() {
     setIsSaving(true);
     setError("");
 
-    let finalCoverImageUrl = initialCoverImage || getDefaultCoverUrlSync();
+    // --- GESTION DE L'IMAGE DE COUVERTURE ---
+    // Cette partie est un peu complexe car elle doit gérer plusieurs cas.
+    let finalCoverImageUrl = initialCoverImage || getDefaultCoverUrlSync(); // On part du principe qu'on garde l'image actuelle ou une image par défaut.
     let newCoverPath: string | null = null;
 
 
 
     try {
+      // Cas 1 : L'utilisateur a sélectionné un NOUVEAU fichier image.
       if (selectedCoverFile) {
 
         const uniquePathSegment = storyId || `${user.uid}-${Date.now()}`;
 
+        // On envoie la nouvelle image sur le serveur (Firebase Storage).
         finalCoverImageUrl = await uploadStoryCover(selectedCoverFile, uniquePathSegment);
 
+        // Si une ancienne image existait (et que ce n'était pas l'image par défaut), on la supprime
+        // du serveur pour ne pas stocker de fichiers inutiles.
         if (initialCoverImage && initialCoverImage.includes("firebasestorage.googleapis.com") && initialCoverImage !== getDefaultCoverUrlSync()) {
             try {
                 const url = new URL(initialCoverImage);
@@ -187,12 +240,17 @@ export default function WritePage() {
             }
         }
 
+        // Cas 2 : L'utilisateur n'a pas envoyé de fichier, mais a peut-être collé une nouvelle URL d'image manuellement.
       } else if (coverImage !== initialCoverImage) {
 
         finalCoverImageUrl = coverImage || getDefaultCoverUrlSync();
       }
 
 
+      // --- PRÉPARATION DES DONNÉES ---
+      // Avant d'envoyer à la base de données, on s'assure que les données sont propres et bien formatées.
+
+      // On s'assure que chaque chapitre a un titre et un ordre correct.
       const chaptersWithTitles = chapters.map((chap, index) => ({
         ...chap,
         title: chap.title || `Chapter ${index + 1}`,
@@ -200,15 +258,17 @@ export default function WritePage() {
       }));
       setChapters(chaptersWithTitles);
 
+      // On rassemble les genres sélectionnés dans un tableau.
       const finalGenres: string[] = [];
       if (genre1) finalGenres.push(genre1);
       if (genre2) finalGenres.push(genre2);
       if (genre3) finalGenres.push(genre3);
 
+      // On transforme la chaîne de caractères des tags (ex: "magie, aventure") en un tableau propre (ex: ["magie", "aventure"]).
       const finalTags: string[] = tagsInput
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter((tag) => tag !== "");
+        .split(",") // Sépare la chaîne par les virgules
+        .map((tag) => tag.trim()) // Enlève les espaces avant/après chaque tag
+        .filter((tag) => tag !== ""); // Retire les tags vides
 
       if (!title.trim()) {
         setError("Story title cannot be empty.");
@@ -223,6 +283,10 @@ export default function WritePage() {
 
       let currentStoryId = storyId;
 
+      // --- CRÉATION OU MISE À JOUR DE L'HISTOIRE ---
+      // On vérifie si on est en train d'éditer une histoire existante ou d'en créer une nouvelle.
+
+      // Si un `currentStoryId` existe, cela veut dire qu'on modifie une histoire.
       if (currentStoryId) {
         const storyUpdateData: any = {
           title: title.trim(),
@@ -235,8 +299,10 @@ export default function WritePage() {
           coverImage: finalCoverImageUrl,
 
         };
+        // On appelle la fonction `updateStory` pour mettre à jour les données dans Firebase.
         await updateStory(currentStoryId, storyUpdateData);
       } else {
+        // Sinon, c'est une nouvelle histoire.
         const newStoryData: any = {
           title: title.trim(),
           description: description.trim(),
@@ -250,10 +316,14 @@ export default function WritePage() {
           coverImage: finalCoverImageUrl,
 
         };
+        // On appelle `createStory` qui va créer l'histoire dans Firebase et nous retourner le nouvel ID.
         currentStoryId = await createStory(newStoryData);
       }
 
-      localStorage.removeItem("pendingStory");
+      // --- FINALISATION ---
+      localStorage.removeItem("pendingStory"); // On nettoie les données temporaires s'il y en avait.
+      // On redirige l'utilisateur : soit vers la page de l'histoire si elle est publiée,
+      // soit vers la liste de ses histoires si elle est sauvegardée en brouillon.
       router.push(status === "published" ? `/story/${currentStoryId}` : "/my-stories");
     } catch (err: any) {
       setError(err.message || "Failed to save the story.");
@@ -263,7 +333,12 @@ export default function WritePage() {
     }
   };
 
+  // --- AFFICHAGE DU COMPOSANT (JSX) ---
+  // La partie `return` contient tout le code pour afficher la page.
+  // Ce n'est pas du HTML, mais du JSX : un mélange de JavaScript et de HTML qui décrit l'interface.
   return (
+    // Ce composant spécial `AuthCheck` agit comme un garde. Il vérifie si l'utilisateur est connecté.
+    // Si ce n'est pas le cas, il peut le rediriger vers la page de connexion au lieu d'afficher le contenu.
     <AuthCheck>
       <div className="min-h-screen bg-gradient-to-b from-amber-50/50 via-white to-white dark:from-amber-950/30 dark:via-gray-900 dark:to-gray-900">
         <div className="relative">
@@ -274,6 +349,8 @@ export default function WritePage() {
           </div>
 
 
+          {/* L'en-tête de la page, qui reste visible en haut de l'écran (`sticky top-0`).
+              Il contient le titre ("Edit Story" ou "Write Your Story") et les boutons de sauvegarde. */}
           <header className="sticky top-0 z-10 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border-b border-amber-200/30 dark:border-amber-800/30">
             <div className="container mx-auto px-4 py-4">
               <div className="flex justify-between items-center">
@@ -315,6 +392,7 @@ export default function WritePage() {
               )}
 
 
+              {/* Section pour les détails de l'histoire : titre, description, genres, tags et image de couverture. */}
               <div className="mb-8 p-6 rounded-3xl bg-white/70 dark:bg-gray-900/70 backdrop-blur-lg border border-amber-200/40 dark:border-amber-800/40 shadow-xl space-y-6">
                 <h2 className="text-xl font-semibold text-amber-800 dark:text-amber-200 font-serif">Story Details</h2>
                 
@@ -452,10 +530,13 @@ export default function WritePage() {
               </div>
 
 
+              {/* La mise en page principale est une grille qui se divise en deux colonnes sur les grands écrans. */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-1 space-y-4">
+                  {/* Colonne de gauche : La liste des chapitres. */}
                   <h2 className="text-xl font-semibold text-amber-800 dark:text-amber-200 font-serif">Chapters</h2>
                   <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                    {/* On utilise `.map()` pour transformer la liste des chapitres (données) en une liste d'éléments cliquables (interface). */}
                     {chapters.map((chapter, index) => (
                       <div
                         key={chapter.id}
@@ -478,15 +559,19 @@ export default function WritePage() {
                       </div>
                     ))}
                   </div>
+                  {/* Bouton pour ajouter un nouveau chapitre à la liste. */}
                   <Button
                     onClick={() => {
+                      // Crée un objet représentant le nouveau chapitre.
                       const newChapter: Chapter = {
-                        id: uuidv4(),
+                        id: uuidv4(), // `uuidv4` génère un identifiant unique pour chaque chapitre.
                         title: `Chapter ${chapters.length + 1}`,
                         content: "",
                         order: chapters.length + 1,
                       };
+                      // Met à jour l'état `chapters` en ajoutant le nouveau.
                       setChapters([...chapters, newChapter]);
+                      // Sélectionne automatiquement le chapitre qui vient d'être créé.
                       setCurrentChapterIndex(chapters.length);
                       setCurrentChapterTitle(newChapter.title);
                     }}
@@ -497,7 +582,9 @@ export default function WritePage() {
                   </Button>
                 </div>
 
+                {/* Colonne de droite : L'éditeur pour le chapitre actuellement sélectionné. */}
                 <div className="md:col-span-2 space-y-4">
+                  {/* On affiche cette partie seulement si un chapitre est bien sélectionné. */}
                   {currentChapterIndex !== null && chapters[currentChapterIndex] && (
                     <>
                       <Input
@@ -590,6 +677,7 @@ export default function WritePage() {
                     </>
                   )}
                   <div className="rounded-3xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-amber-200/30 dark:border-amber-800/30 shadow-2xl">
+                    {/* C'est ici qu'on insère le composant `Editor` qui fournit l'éditeur de texte riche (avec options de mise en forme). */}
                     <Editor
                       value={
                         currentChapterIndex !== null && chapters[currentChapterIndex]

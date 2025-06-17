@@ -28,9 +28,7 @@ function ResetPasswordConfirmContent() {
       setError("Lien de réinitialisation invalide ou manquant. Veuillez réessayer depuis votre e-mail.");
       setIsVerifying(false);
     } else {
-      // Potentiellement, vérifier la validité du oobCode ici avec une fonction Firebase `verifyPasswordResetCode`
-      // Pour l'instant, on suppose qu'il est valide s'il est présent.
-      // La vraie vérification se fera lors de la soumission du nouveau mot de passe.
+
       setIsVerifying(false);
     }
   }, [oobCode]);
