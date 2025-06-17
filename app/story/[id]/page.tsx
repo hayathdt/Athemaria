@@ -56,17 +56,12 @@ export default function StoryPage({ params }: { params: { id: string } }) {
           setStory(storyData);
 
           if (user && user.uid) {
-            recordStoryRead(user.uid, storyId).catch(err => {
-              console.error("Failed to record story read:", err);
-
-            });
+            recordStoryRead(user.uid, storyId).catch(err => {});
           }
         } else {
-          notFound(); 
+          notFound();
         }
       } catch (error) {
-        console.error("Failed to fetch story:", error);
-
         notFound();
       }
       setIsLoadingStory(false);
@@ -88,11 +83,8 @@ export default function StoryPage({ params }: { params: { id: string } }) {
       setAverageRating(ratingStats.average);
       setRatingCount(ratingStats.count);
     } catch (error) {
-      console.error("Failed to fetch comments or average rating:", error);
-
       setAverageRating(0);
       setRatingCount(0);
-
     }
     setIsLoadingComments(false);
     setIsLoadingRating(false);
@@ -110,7 +102,6 @@ export default function StoryPage({ params }: { params: { id: string } }) {
       const ratingData = await getRating(storyId, user.uid);
       setUserRating(ratingData);
     } catch (error) {
-      console.error("Failed to fetch user rating:", error);
       // Handle error
     }
     setIsLoadingRating(false);
@@ -150,21 +141,11 @@ export default function StoryPage({ params }: { params: { id: string } }) {
     }
   }, [user, authLoading, storyId]);
 
-  useEffect(() => {
-    console.log("[page.tsx] Comments state updated. New count:", comments.length);
-    if (comments.length > 0) {
-      
-      
-      const lastComment = comments[0];
-      console.log("[page.tsx] Last comment (potentially newest):", JSON.stringify({text: lastComment.text, userName: lastComment.userName, createdAt: lastComment.createdAt }, null, 2));
-    }
-  }, [comments]);
 
 
   const handleSetRating = async (value: 1 | 2 | 3 | 4 | 5) => {
     if (!user || !user.uid || !storyId) {
 
-      console.log("User not logged in or storyId missing");
       return;
     }
     setIsSubmittingRating(true);
@@ -176,17 +157,12 @@ export default function StoryPage({ params }: { params: { id: string } }) {
       setAverageRating(updatedRatingStats.average);
       setRatingCount(updatedRatingStats.count);
     } catch (error) {
-      console.error("Failed to set rating:", error);
-
     }
     setIsSubmittingRating(false);
   };
 
   const handleCommentSubmit = async () => {
-    if (!user || !user.uid || !storyId || !newComment.trim()) {
-      console.log("[page.tsx] Pre-condition failed for comment submission: user, storyId, or comment text missing.", { userId: user?.uid, storyId, newComment: newComment.trim() });
-      return;
-    }
+    if (!user || !user.uid || !storyId || !newComment.trim()) return;
 
     const commentPayload = {
       storyId,
@@ -195,37 +171,20 @@ export default function StoryPage({ params }: { params: { id: string } }) {
       userAvatar: user.photoURL || null,
       text: newComment.trim(),
     };
-    console.log("[page.tsx] Attempting to submit comment. Payload:", JSON.stringify(commentPayload, null, 2));
     setIsSubmittingComment(true);
 
     try {
-      const commentId = await createComment(commentPayload);
-      console.log(`[page.tsx] createComment successful, returned ID: ${commentId}. New comment text: "${commentPayload.text}"`);
+      await createComment(commentPayload);
       setNewComment(""); // Clear input field
-      console.log("[page.tsx] Fetching comments and ratings after submission...");
       await fetchCommentsAndRatings(); // Refetch comments
-      console.log("[page.tsx] Comments and ratings fetched. Current local comments count:", comments.length);
-
-
     } catch (error) {
-      console.error("[page.tsx] Failed to submit comment via handleCommentSubmit. Error caught from createComment:", error);
-      if (error instanceof Error) {
-        console.error("[page.tsx] Error name:", error.name);
-        console.error("[page.tsx] Error message:", error.message);
-        if (error.stack) {
-          console.error("[page.tsx] Error stack:", error.stack);
-        }
-      }
-
+      console.error("Failed to submit comment:", error);
     }
     setIsSubmittingComment(false);
   };
 
   const handleUpdateComment = async (commentId: string) => {
-    if (!user || !user.uid || !editText.trim()) {
-      console.log("[page.tsx] User not logged in or edit text empty for comment update.");
-      return;
-    }
+    if (!user || !user.uid || !editText.trim()) return;
     setIsSubmittingEdit(true);
     try {
       await updateComment(commentId, editText.trim(), user.uid);
@@ -233,19 +192,15 @@ export default function StoryPage({ params }: { params: { id: string } }) {
       setEditText("");
 
 
-      await fetchCommentsAndRatings(); 
-      console.log(`[page.tsx] Comment ${commentId} updated successfully.`);
+      await fetchCommentsAndRatings();
     } catch (error) {
-      console.error(`[page.tsx] Failed to update comment ${commentId}:`, error);
-
+      console.error(`Failed to update comment ${commentId}:`, error);
     }
     setIsSubmittingEdit(false);
   };
 
   const handleDeleteComment = async (commentId: string) => {
     if (!user || !user.uid) {
-      console.log("[page.tsx] User not logged in for comment delete.");
-
       return;
     }
 
@@ -258,11 +213,8 @@ export default function StoryPage({ params }: { params: { id: string } }) {
       await deleteComment(commentId, user.uid);
 
       await fetchCommentsAndRatings();
-      console.log(`[page.tsx] Comment ${commentId} deleted successfully.`);
-
     } catch (error) {
-      console.error(`[page.tsx] Failed to delete comment ${commentId}:`, error);
-
+      console.error(`Failed to delete comment ${commentId}:`, error);
     }
     setIsDeletingCommentId(null);
   };

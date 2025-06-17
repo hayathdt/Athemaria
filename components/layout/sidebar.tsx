@@ -34,6 +34,11 @@ const Sidebar: React.FC = () => {
   const isMobile = useIsMobile();
   const pathname = usePathname();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -83,7 +88,7 @@ const Sidebar: React.FC = () => {
   return (
     <>
       {/* Mobile Hamburger Button */}
-      {isMobile && !isOpen && (
+      {mounted && isMobile && !isOpen && (
         <button
           onClick={() => setIsOpen(true)}
           className="fixed top-4 left-4 z-50 p-2 bg-transparent md:hidden"
@@ -143,19 +148,21 @@ const Sidebar: React.FC = () => {
             </div>
 
             {/* Dark Mode Toggle - Only show when expanded */}
-            <div className={`mt-4 transition-opacity duration-300 ${
-              (!isOpen && !isMobile) ? 'opacity-0 pointer-events-none' : 'opacity-100'
-            }`}>
-              <div className="flex items-center justify-center relative">
-                <Switch
-                  checked={theme === 'dark'}
-                  onCheckedChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  className="relative data-[state=checked]:bg-gray-700 data-[state=unchecked]:bg-amber-200"
-                />
-                <Sun className={`absolute left-1 top-1/2 transform -translate-y-1/2 h-3 w-3 transition-opacity pointer-events-none ${theme === 'dark' ? 'opacity-0' : 'opacity-100 text-amber-600'}`} />
-                <Moon className={`absolute right-1 top-1/2 transform -translate-y-1/2 h-3 w-3 transition-opacity pointer-events-none ${theme === 'dark' ? 'opacity-100 text-amber-100' : 'opacity-0'}`} />
+            {mounted && (
+              <div className={`mt-4 transition-opacity duration-300 ${
+                (!isOpen && !isMobile) ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              }`}>
+                <div className="flex items-center justify-center relative">
+                  <Switch
+                    checked={theme === 'dark'}
+                    onCheckedChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    className="relative data-[state=checked]:bg-gray-700 data-[state=unchecked]:bg-amber-200"
+                  />
+                  <Sun className={`absolute left-1 top-1/2 transform -translate-y-1/2 h-3 w-3 transition-opacity pointer-events-none ${theme === 'dark' ? 'opacity-0' : 'opacity-100 text-amber-600'}`} />
+                  <Moon className={`absolute right-1 top-1/2 transform -translate-y-1/2 h-3 w-3 transition-opacity pointer-events-none ${theme === 'dark' ? 'opacity-100 text-amber-100' : 'opacity-0'}`} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Search Input - Only show when expanded */}
