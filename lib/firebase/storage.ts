@@ -1,7 +1,9 @@
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { app } from './config';
 
-// Initialize Firebase Storage with error handling
+// Initialisation du service Firebase Storage.
+// On utilise un bloc try...catch pour s'assurer que la configuration est correcte
+// et que le service peut démarrer. Si ce n'est pas le cas, une erreur claire est levée.
 let storage: any;
 try {
   storage = getStorage(app);
@@ -11,16 +13,18 @@ try {
   throw new Error('Firebase Storage initialization failed. Check your configuration.');
 }
 
+// On exporte l'instance de Storage pour qu'elle soit utilisable dans d'autres parties de l'application.
 export { storage };
 
 // Default placeholder cover image URL (will be set after uploading to Firebase)
 export const DEFAULT_COVER_URL = 'https://firebasestorage.googleapis.com/v0/b/your-project-id/o/placeholders%2Fcover.png?alt=media';
 
 /**
- * Upload a file to Firebase Storage
- * @param file - The file to upload
- * @param path - The storage path (e.g., 'covers/story-123.jpg')
- * @returns Promise<string> - The download URL
+ * Fonction générique pour téléverser un fichier sur Firebase Storage.
+ * C'est la fonction de base qui est ensuite utilisée par des fonctions plus spécifiques (comme pour les couvertures ou les avatars).
+ * @param file - Le fichier (objet File) à téléverser, généralement issu d'un <input type="file">.
+ * @param path - Le chemin de destination dans le "bucket" de Firebase Storage (ex: 'covers/story-123.jpg').
+ * @returns Une promesse qui se résout avec l'URL publique de téléchargement du fichier.
  */
 export async function uploadFile(file: File, path: string): Promise<string> {
   try {
@@ -95,8 +99,9 @@ export async function getDefaultCoverUrl(): Promise<string> {
 }
 
 /**
- * Delete a file from Firebase Storage
- * @param path - The storage path of the file to delete
+ * Supprime un fichier de Firebase Storage.
+ * Utile par exemple si un utilisateur change son image de couverture ou son avatar.
+ * @param path - Le chemin complet du fichier à supprimer dans Firebase Storage.
  */
 export async function deleteFile(path: string): Promise<void> {
   try {
@@ -109,20 +114,23 @@ export async function deleteFile(path: string): Promise<void> {
 }
 
 /**
- * Upload a story cover image
- * @param file - The image file
- * @param storyId - The story ID
- * @returns Promise<string> - The download URL
+ * Fonction spécifique pour téléverser une image de couverture pour une histoire.
+ * Elle construit un chemin unique pour éviter les conflits de noms de fichiers.
+ * @param file - Le fichier image à téléverser.
+ * @param storyId - L'ID de l'histoire, pour l'inclure dans le nom du fichier.
+ * @returns L'URL de téléchargement de l'image de couverture.
  */
 export async function uploadStoryCover(file: File, storyId: string): Promise<string> {
   const path = `covers/${storyId}-${Date.now()}.${file.name.split('.').pop()}`;
   return uploadFile(file, path);
 }
 /**
- * Upload an avatar image
- * @param file - The image file
- * @param userId - The user ID
- * @returns Promise<string> - The download URL
+ * Fonction spécifique pour téléverser un avatar pour un utilisateur.
+ * Elle construit un chemin basé sur l'ID de l'utilisateur pour garantir que chaque utilisateur n'a qu'un seul avatar,
+ * écrasant l'ancien si un nouveau est téléversé.
+ * @param file - Le fichier image à téléverser.
+ * @param userId - L'ID de l'utilisateur.
+ * @returns L'URL de téléchargement de l'avatar.
  */
 export async function uploadAvatar(file: File, userId: string): Promise<string> {
   const fileExtension = file.name.split('.').pop();

@@ -29,14 +29,22 @@ import type {
   ReadingProgress,
 } from "../types";
 
-export async function createStory(storyData: StoryInput): Promise<string> { 
+/**
+ * Crée une nouvelle histoire dans la base de données Firestore.
+ * @param storyData - Un objet contenant toutes les informations de l'histoire (titre, description, chapitres, etc.).
+ * @returns L'ID unique de l'histoire nouvellement créée.
+ */
+export async function createStory(storyData: StoryInput): Promise<string> {
   try {
+    // On s'assure que les champs essentiels ont des valeurs par défaut pour éviter les erreurs.
     const dataToSave = {
       ...storyData,
       chapters: storyData.chapters || [],
-      coverImage: storyData.coverImage || "/assets/cover.png", // Use correct default cover image
+      coverImage: storyData.coverImage || "/assets/cover.png", // Image de couverture par défaut
     };
+    // On ajoute un nouveau document à la collection "stories". Firestore génère automatiquement un ID unique.
     const docRef = await addDoc(collection(db, "stories"), dataToSave);
+    // On retourne cet ID pour pouvoir l'utiliser, par exemple pour rediriger l'utilisateur vers la page de la nouvelle histoire.
     return docRef.id;
   } catch (error) {
     console.error("Error adding story: ", error);
@@ -44,34 +52,41 @@ export async function createStory(storyData: StoryInput): Promise<string> {
   }
 }
 
+/**
+ * Met à jour le texte d'un commentaire existant.
+ * @param commentId - L'ID du commentaire à modifier.
+ * @param newText - Le nouveau contenu du commentaire.
+ * @param userId - L'ID de l'utilisateur qui effectue l'action, pour vérifier les permissions.
+ */
 export async function updateComment(
   commentId: string,
   newText: string,
   userId: string
 ): Promise<void> {
-  console.log(`[firestore.ts] Attempting to update comment ${commentId} by user ${userId} with new text: "${newText}"`);
+  // On cible le document spécifique du commentaire.
   const commentRef = doc(db, "comments", commentId);
   try {
+    // Avant de modifier, on récupère le commentaire pour vérifier qu'il existe et que l'utilisateur a le droit de le modifier.
     const commentSnap = await getDoc(commentRef);
 
     if (!commentSnap.exists()) {
-      console.error(`[firestore.ts] Comment ${commentId} not found for update.`);
       throw new Error("Comment not found.");
     }
 
     const commentData = commentSnap.data();
+    // C'est une vérification de sécurité cruciale : seul l'auteur original du commentaire peut le modifier.
     if (commentData.userId !== userId) {
-      console.error(`[firestore.ts] User ${userId} does not have permission to update comment ${commentId} owned by ${commentData.userId}.`);
       throw new Error("You do not have permission to update this comment.");
     }
 
+    // Si tout est en ordre, on met à jour le document avec le nouveau texte et une nouvelle date de mise à jour.
     await updateDoc(commentRef, {
       text: newText,
       updatedAt: Timestamp.now().toMillis().toString(),
     });
-    console.log(`[firestore.ts] Comment ${commentId} updated successfully by user ${userId}.`);
   } catch (error) {
     console.error(`[firestore.ts] Error updating comment ${commentId}:`, error);
+    // On propage l'erreur pour que l'interface utilisateur puisse réagir (par exemple, afficher un message à l'utilisateur).
     if (error instanceof Error && (error.message === "Comment not found." || error.message === "You do not have permission to update this comment.")) {
         throw error;
     }
@@ -79,28 +94,34 @@ export async function updateComment(
   }
 }
 
+/**
+ * Supprime un commentaire de la base de données.
+ * @param commentId - L'ID du commentaire à supprimer.
+ * @param userId - L'ID de l'utilisateur qui demande la suppression, pour la vérification des droits.
+ */
 export async function deleteComment(
   commentId: string,
   userId: string
 ): Promise<void> {
-  console.log(`[firestore.ts] Attempting to delete comment ${commentId} by user ${userId}.`);
   const commentRef = doc(db, "comments", commentId);
   try {
+    // Comme pour la mise à jour, on vérifie d'abord les permissions.
     const commentSnap = await getDoc(commentRef);
 
+    // Si le commentaire n'existe pas, on ne fait rien. C'est peut-être qu'il a déjà été supprimé.
     if (!commentSnap.exists()) {
       console.warn(`[firestore.ts] Comment ${commentId} not found for delete. Might have already been deleted.`);
-      return; 
+      return;
     }
 
     const commentData = commentSnap.data();
+    // Vérification de sécurité : seul l'auteur peut supprimer son commentaire.
     if (commentData.userId !== userId) {
-      console.error(`[firestore.ts] User ${userId} does not have permission to delete comment ${commentId} owned by ${commentData.userId}.`);
       throw new Error("You do not have permission to delete this comment.");
     }
 
+    // Si les vérifications passent, on supprime le document.
     await deleteDoc(commentRef);
-    console.log(`[firestore.ts] Comment ${commentId} deleted successfully by user ${userId}.`);
   } catch (error) {
     console.error(`[firestore.ts] Error deleting comment ${commentId}:`, error);
      if (error instanceof Error && error.message === "You do not have permission to delete this comment.") {
@@ -110,26 +131,36 @@ export async function deleteComment(
   }
 }
 
+/**
+ * Ajoute ou met à jour la note d'un utilisateur pour une histoire.
+ * Un utilisateur ne peut donner qu'une seule note par histoire.
+ * @param ratingData - Contient l'ID de l'histoire, l'ID de l'utilisateur et la valeur de la note.
+ */
 export async function setRating(ratingData: RatingInput): Promise<void> {
   const { storyId, userId, value } = ratingData;
   try {
+    // On cherche d'abord si cet utilisateur a déjà noté cette histoire.
     const ratingsQuery = query(
       collection(db, "ratings"),
       where("storyId", "==", storyId),
       where("userId", "==", userId),
-      limit(1)
+      limit(1) // On n'a besoin que d'un seul résultat au maximum.
     );
 
     const querySnapshot = await getDocs(ratingsQuery);
     const now = Timestamp.now().toMillis().toString();
 
+    // Si la requête retourne un document, cela signifie que l'utilisateur a déjà noté.
     if (!querySnapshot.empty) {
+      // On met donc à jour la note existante.
       const docId = querySnapshot.docs[0].id;
       await updateDoc(doc(db, "ratings", docId), {
-        value,
+        value, // Nouvelle valeur de la note
         updatedAt: now,
       });
     } else {
+      // Sinon, c'est la première fois que l'utilisateur note cette histoire.
+      // On crée donc un nouveau document de note.
       await addDoc(collection(db, "ratings"), {
         ...ratingData,
         createdAt: now,
@@ -142,11 +173,18 @@ export async function setRating(ratingData: RatingInput): Promise<void> {
   }
 }
 
+/**
+ * Récupère la note spécifique qu'un utilisateur a donnée à une histoire.
+ * @param storyId - L'ID de l'histoire.
+ * @param userId - L'ID de l'utilisateur.
+ * @returns Un objet Rating si une note existe, sinon null.
+ */
 export async function getRating(
   storyId: string,
   userId: string
 ): Promise<Rating | null> {
   try {
+    // Requête très similaire à setRating pour trouver la note spécifique.
     const ratingsQuery = query(
       collection(db, "ratings"),
       where("storyId", "==", storyId),
@@ -157,6 +195,7 @@ export async function getRating(
     const querySnapshot = await getDocs(ratingsQuery);
 
     if (!querySnapshot.empty) {
+      // Si on trouve une note, on la formate et on la retourne.
       const docSnap = querySnapshot.docs[0];
       const data = docSnap.data() as DocumentData;
       return {
@@ -166,6 +205,7 @@ export async function getRating(
         value: data.value,
       } as Rating;
     }
+    // Si aucune note n'est trouvée, on retourne null.
     return null;
   } catch (error) {
     console.error("Error getting rating: ", error);
@@ -173,23 +213,31 @@ export async function getRating(
   }
 }
 
+/**
+ * Calcule la note moyenne et le nombre total de notes pour une histoire.
+ * @param storyId - L'ID de l'histoire concernée.
+ * @returns Un objet contenant la moyenne (`average`) et le nombre de notes (`count`).
+ */
 export async function getAverageRating(storyId: string): Promise<ImportedRatingStats> {
   try {
+    // On récupère TOUTES les notes pour une histoire donnée.
     const ratingsQuery = query(
       collection(db, "ratings"),
       where("storyId", "==", storyId)
     );
 
     const querySnapshot = await getDocs(ratingsQuery);
-    const count = querySnapshot.size;
+    const count = querySnapshot.size; // Le nombre de documents est le nombre de notes.
 
     if (count === 0) {
       return { average: 0, count: 0 };
     }
 
+    // On calcule la somme de toutes les notes.
     let totalValue = 0;
     querySnapshot.forEach((doc) => {
       const ratingValue = doc.data().value;
+      // On s'assure que la valeur est bien un nombre avant de l'ajouter.
       if (typeof ratingValue === 'number') {
         totalValue += ratingValue;
       } else {
@@ -197,15 +245,22 @@ export async function getAverageRating(storyId: string): Promise<ImportedRatingS
       }
     });
     
+    // La moyenne est simplement la somme divisée par le nombre de notes.
     const average = totalValue / count;
-    console.log(`[firestore.ts] Calculated average rating for story ${storyId}: ${average}, count: ${count}`);
     return { average, count };
   } catch (error) {
     console.error(`[firestore.ts] Error getting average rating stats for story ${storyId}:`, error);
+    // En cas d'erreur, on retourne des valeurs neutres.
     return { average: 0, count: 0 };
   }
 }
 
+/**
+ * Compte le nombre de commentaires pour une histoire donnée.
+ * C'est plus efficace que de récupérer tous les commentaires avec `getComments` si on n'a besoin que du nombre.
+ * @param storyId - L'ID de l'histoire.
+ * @returns Le nombre de commentaires.
+ */
 export async function getCommentCountForStory(storyId: string): Promise<number> {
   try {
     const commentsQuery = query(
@@ -213,6 +268,7 @@ export async function getCommentCountForStory(storyId: string): Promise<number> 
       where("storyId", "==", storyId)
     );
     const querySnapshot = await getDocs(commentsQuery);
+    // La propriété .size d'un snapshot est optimisée pour compter les documents sans avoir à les télécharger entièrement.
     return querySnapshot.size;
   } catch (error) {
     console.error(`[firestore.ts] Error getting comment count for story ${storyId}:`, error);
@@ -220,27 +276,28 @@ export async function getCommentCountForStory(storyId: string): Promise<number> 
   }
 }
 
+/**
+ * Récupère toutes les histoires écrites par un utilisateur spécifique.
+ * @param userId - L'ID de l'auteur.
+ * @returns Une liste d'histoires formatées pour l'affichage dans le profil de l'utilisateur.
+ */
 export async function getUserStories(userId: string): Promise<UserStory[]> {
   try {
-    console.log(`[firestore.ts] getUserStories called with userId: ${userId}`);
     const storiesRef = collection(db, 'stories');
+    // On requête les histoires où le champ 'authorId' correspond à l'ID de l'utilisateur.
     const q = query(storiesRef, where('authorId', '==', userId));
     const snapshot = await getDocs(q);
-    
-    console.log(`[firestore.ts] Found ${snapshot.size} stories for user ${userId}`);
     
     const userStories: UserStory[] = [];
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data() as DocumentData;
       
-      console.log(`[firestore.ts] Processing story: ${docSnap.id}, title: ${data.title}, authorId: ${data.authorId}, deleted: ${data.deleted}`);
-      
-      // Filtrer côté client les histoires supprimées
+      // On ne veut pas afficher les histoires qui ont été "supprimées doucement" (soft-deleted).
       if (data.deleted === true) {
-        console.log(`[firestore.ts] Skipping deleted story: ${docSnap.id}`);
-        continue;
+        continue; // On passe à l'histoire suivante.
       }
       
+      // Pour chaque histoire, on récupère des informations supplémentaires comme le nombre de commentaires et la note moyenne.
       const commentCount = await getCommentCountForStory(docSnap.id);
       const { average: averageRating } = await getAverageRating(docSnap.id);
 
@@ -253,7 +310,6 @@ export async function getUserStories(userId: string): Promise<UserStory[]> {
       });
     }
     
-    console.log(`[firestore.ts] Returning ${userStories.length} user stories`);
     return userStories;
   } catch (error) {
     console.error("[firestore.ts] Error getting user stories:", error);
@@ -261,29 +317,33 @@ export async function getUserStories(userId: string): Promise<UserStory[]> {
   }
 }
 
+/**
+ * Crée un nouveau commentaire pour une histoire.
+ * @param commentData - Les données du commentaire (texte, ID de l'histoire, infos de l'utilisateur).
+ * @returns L'ID du nouveau commentaire.
+ */
 export async function createComment(
   commentData: CommentInput
 ): Promise<string> {
-  console.log("[firestore.ts] Raw input commentData:", JSON.stringify(commentData, null, 2));
-
   const dataToSave: Partial<CommentInput> & { userAvatar?: string | null } = { ...commentData };
 
+  // Petite sécurité pour s'assurer que le champ userAvatar n'est jamais "undefined", ce qui peut causer des problèmes avec Firestore.
+  // On préfère "null" qui est une valeur valide.
   if (dataToSave.userAvatar === undefined) {
-    console.log("[firestore.ts] Safeguard: userAvatar was undefined, converting to null.");
     dataToSave.userAvatar = null;
   }
 
   const now = Timestamp.now().toMillis().toString();
+  // On enrichit les données du commentaire avec les dates de création et de mise à jour.
   const docDataWithTimestamp = {
     ...dataToSave,
     createdAt: now,
     updatedAt: now,
   };
 
-  console.log("[firestore.ts] Document to be added to 'comments' (after safeguard and adding updatedAt):", JSON.stringify(docDataWithTimestamp, null, 2));
   try {
+    // On ajoute le nouveau document à la collection "comments".
     const docRef = await addDoc(collection(db, "comments"), docDataWithTimestamp);
-    console.log("[firestore.ts] Comment added successfully with ID:", docRef.id);
     return docRef.id;
   } catch (error) {
     console.error("[firestore.ts] Error adding comment to Firestore:", error);
@@ -299,8 +359,15 @@ export async function createComment(
   }
 }
 
+/**
+ * Récupère tous les commentaires pour une histoire donnée.
+ * @param storyId - L'ID de l'histoire dont on veut les commentaires.
+ * @returns Une liste d'objets Comment.
+ */
 export async function getComments(storyId: string): Promise<Comment[]> {
   try {
+    // On construit une requête pour trouver tous les commentaires
+    // qui correspondent à l'ID de l'histoire, triés du plus récent au plus ancien.
     const commentsQuery = query(
       collection(db, "comments"),
       where("storyId", "==", storyId),
@@ -310,6 +377,7 @@ export async function getComments(storyId: string): Promise<Comment[]> {
     const querySnapshot = await getDocs(commentsQuery);
     const comments: Comment[] = [];
 
+    // On transforme chaque document Firestore en un objet Comment propre.
     querySnapshot.forEach((doc) => {
       const data = doc.data() as DocumentData;
       comments.push({
@@ -327,37 +395,58 @@ export async function getComments(storyId: string): Promise<Comment[]> {
     return comments;
   } catch (error) {
     console.error("Error getting comments: ", error);
-    return [];
+    return []; // On retourne un tableau vide en cas d'erreur.
   }
 }
 
+/**
+ * Récupère une liste d'histoires depuis Firestore.
+ * @param limitCount - Le nombre maximum d'histoires à récupérer (par défaut 50).
+ * @returns Une liste d'objets Story.
+ */
 export async function getStories(limitCount = 50): Promise<Story[]> {
   try {
+    // On construit une requête pour récupérer les histoires :
+    // - On cible la collection "stories".
+    // - On les trie par date de création, de la plus récente à la plus ancienne ("desc").
+    // - On limite le nombre de résultats.
     const storiesQuery = query(
       collection(db, "stories"),
       orderBy("createdAt", "desc"),
       limit(limitCount)
     );
 
+    // On exécute la requête.
     const querySnapshot = await getDocs(storiesQuery);
     const stories: Story[] = [];
 
+    // On boucle sur chaque document retourné par la requête.
     querySnapshot.forEach((doc) => {
       const data = doc.data() as DocumentData;
+      
+      // --- Logique de compatibilité ascendante ---
+      // Le code ci-dessous gère les anciennes et nouvelles manières de stocker les données.
+      // C'est une bonne pratique pour faire évoluer une application sans casser les données existantes.
+
+      // Gère les anciens chapitres qui étaient peut-être un simple champ "content".
       let chapters = data.chapters || [];
       if (!data.chapters && data.content) {
         chapters = [{ id: 'default', title: 'Chapter 1', content: data.content, order: 1 }];
       }
       
+      // Gère les anciens "genre" (une seule chaîne de caractères) et les nouveaux "genres" (un tableau).
       let genres: string[] = [];
       if (data.genres && Array.isArray(data.genres)) {
         genres = data.genres;
       } else if (data.genre && typeof data.genre === 'string') {
+        // Si on trouve un ancien champ "genre", on le transforme en tableau pour être cohérent.
         genres = [data.genre];
       }
 
+      // S'assure que les "tags" sont toujours un tableau.
       const tags: string[] = (data.tags && Array.isArray(data.tags)) ? data.tags : [];
 
+      // On ajoute l'histoire formatée à notre liste de résultats.
       stories.push({
         id: doc.id,
         title: data.title,
@@ -370,7 +459,7 @@ export async function getStories(limitCount = 50): Promise<Story[]> {
         createdAt: data.createdAt,
         updatedAt: data.updatedAt || data.createdAt,
         status: data.status || "published",
-        coverImage: data.coverImage || "/placeholder.jpg", // Changed default path
+        coverImage: data.coverImage || "/placeholder.jpg",
         readCount: data.readCount || 0,
       });
     });
@@ -378,17 +467,28 @@ export async function getStories(limitCount = 50): Promise<Story[]> {
     return stories;
   } catch (error) {
     console.error("Error getting stories: ", error);
-    return [];
+    return []; // En cas d'erreur, on retourne un tableau vide pour éviter de faire planter l'application.
   }
 }
 
+/**
+ * Récupère une seule histoire par son ID.
+ * @param id - L'ID du document de l'histoire dans Firestore.
+ * @returns Un objet Story si l'histoire est trouvée, sinon null.
+ */
 export async function getStory(id: string): Promise<Story | null> {
   try {
+    // On crée une référence directe au document de l'histoire en utilisant son ID.
     const docRef = doc(db, "stories", id);
+    // On récupère les données de ce document.
     const docSnap = await getDoc(docRef);
 
+    // On vérifie si le document existe.
     if (docSnap.exists()) {
       const data = docSnap.data() as DocumentData;
+      
+      // La même logique de compatibilité que dans getStories est appliquée ici
+      // pour garantir que les données de l'histoire sont toujours dans le bon format.
       let chapters = data.chapters || [];
       if (data.chapters === undefined && data.content !== undefined) {
         chapters = [{ id: 'default', title: 'Chapter 1', content: data.content, order: 1 }];
@@ -405,6 +505,7 @@ export async function getStory(id: string): Promise<Story | null> {
 
       const tags: string[] = (data.tags && Array.isArray(data.tags)) ? data.tags : [];
 
+      // On construit l'objet Story final avec toutes les données formatées.
       const story: Story = {
         id: docSnap.id,
         title: data.title,
@@ -417,27 +518,36 @@ export async function getStory(id: string): Promise<Story | null> {
         description: data.description,
         status: data.status || "published",
         updatedAt: data.updatedAt || data.createdAt,
-        coverImage: data.coverImage || "/placeholder.jpg", // Changed default path
+        coverImage: data.coverImage || "/placeholder.jpg",
         readCount: data.readCount || 0,
       };
       return story;
     } else {
+      // Si docSnap.exists() est faux, cela signifie qu'aucune histoire avec cet ID n'a été trouvée.
       return null;
     }
   } catch (error) {
     console.error("Error getting story: ", error);
-    return null;
+    return null; // On retourne null aussi en cas d'erreur.
   }
 }
 
+/**
+ * Met à jour les données d'une histoire existante.
+ * C'est une fonction flexible qui peut mettre à jour n'importe quelle partie de l'histoire (titre, genres, chapitres, etc.).
+ * @param id - L'ID de l'histoire à mettre à jour.
+ * @param updateData - Un objet contenant les champs à modifier.
+ */
 export async function updateStory(
   id: string,
-  updateData: StoryUpdate 
+  updateData: StoryUpdate
 ): Promise<void> {
   try {
     const docRef = doc(db, "stories", id);
     const dataToUpdate: Partial<StoryUpdate> = { ...updateData };
 
+    // updateDoc ne met à jour que les champs spécifiés dans dataToUpdate,
+    // laissant les autres champs du document intacts.
     await updateDoc(docRef, dataToUpdate as DocumentData);
   } catch (error) {
     console.error("Error updating story: ", error);
@@ -445,6 +555,11 @@ export async function updateStory(
   }
 }
 
+/**
+ * Supprime DÉFINITIVEMENT une histoire de la base de données.
+ * C'est une action destructrice. Pour une suppression "douce", voir `softDeleteStory`.
+ * @param id - L'ID de l'histoire à supprimer.
+ */
 export async function deleteStory(id: string): Promise<void> {
   try {
     const docRef = doc(db, "stories", id);
@@ -455,17 +570,27 @@ export async function deleteStory(id: string): Promise<void> {
   }
 }
 
+/**
+ * Crée le profil d'un nouvel utilisateur dans la collection "users".
+ * Cette fonction est généralement appelée juste après la création d'un compte.
+ * @param userId - L'ID de l'utilisateur (qui vient de Firebase Auth).
+ * @param profileData - Les données initiales du profil (email, nom d'affichage).
+ */
 export async function createUserProfile(
   userId: string,
   profileData: UserProfile
 ): Promise<void> {
   try {
+    // La référence au document est créée avec l'ID de l'utilisateur, garantissant un profil unique par utilisateur.
     const userRef = doc(db, "users", userId);
+    // On s'assure que les listes (favoris, etc.) sont initialisées comme des tableaux vides.
     const dataWithDefaults = {
       ...profileData,
       favorites: profileData.favorites || [],
       readLater: profileData.readLater || [],
     };
+    // setDoc crée le document s'il n'existe pas, ou l'écrase complètement s'il existe.
+    // C'est pourquoi on l'utilise pour la création.
     await setDoc(userRef, dataWithDefaults);
   } catch (error) {
     console.error("Error creating user profile: ", error);
@@ -473,6 +598,11 @@ export async function createUserProfile(
   }
 }
 
+/**
+ * Récupère les informations du profil d'un utilisateur.
+ * @param userId - L'ID de l'utilisateur dont on veut le profil.
+ * @returns Un objet UserProfile si l'utilisateur est trouvé, sinon null.
+ */
 export async function getUserProfile(
   userId: string
 ): Promise<UserProfile | null> {
@@ -482,6 +612,7 @@ export async function getUserProfile(
 
     if (docSnap.exists()) {
       const data = docSnap.data() as DocumentData;
+      // On formate les données et on s'assure que les champs optionnels ont des valeurs par défaut (chaîne vide, tableau vide, etc.).
       return {
         id: docSnap.id,
         bio: data.bio || "",
@@ -501,12 +632,18 @@ export async function getUserProfile(
   }
 }
 
+/**
+ * Met à jour une partie du profil d'un utilisateur.
+ * @param userId - L'ID de l'utilisateur à modifier.
+ * @param updateData - Un objet avec les champs à mettre à jour (ex: { bio: "Nouveau bio", website: "..." }).
+ */
 export async function updateUserProfile(
   userId: string,
   updateData: Partial<UserProfile>
 ): Promise<void> {
   try {
     const docRef = doc(db, "users", userId);
+    // On utilise updateDoc car on ne veut modifier que certains champs, pas écraser tout le profil.
     await updateDoc(docRef, updateData as DocumentData);
   } catch (error) {
     console.error("Error updating user profile: ", error);
@@ -514,6 +651,12 @@ export async function updateUserProfile(
   }
 }
 
+/**
+ * Ajoute ou retire une histoire des favoris d'un utilisateur.
+ * C'est une fonction "bascule" (toggle).
+ * @param userId - L'ID de l'utilisateur.
+ * @param storyId - L'ID de l'histoire à ajouter/retirer.
+ */
 export async function toggleFavorite(userId: string, storyId: string): Promise<void> {
   try {
     const userRef = doc(db, "users", userId);
@@ -527,14 +670,16 @@ export async function toggleFavorite(userId: string, storyId: string): Promise<v
     const currentFavorites = userData.favorites || [];
     
     let updatedFavorites: string[];
+    // On vérifie si l'histoire est déjà dans les favoris.
     if (currentFavorites.includes(storyId)) {
-      // Remove from favorites
+      // Si oui, on la retire en filtrant le tableau.
       updatedFavorites = currentFavorites.filter((id: string) => id !== storyId);
     } else {
-      // Add to favorites
+      // Si non, on l'ajoute au tableau.
       updatedFavorites = [...currentFavorites, storyId];
     }
     
+    // On met à jour le champ "favorites" du profil utilisateur avec le nouveau tableau.
     await updateDoc(userRef, { favorites: updatedFavorites });
   } catch (error) {
     console.error("Error toggling favorite: ", error);
@@ -542,6 +687,11 @@ export async function toggleFavorite(userId: string, storyId: string): Promise<v
   }
 }
 
+/**
+ * Récupère la liste complète des histoires favorites d'un utilisateur.
+ * @param userId - L'ID de l'utilisateur.
+ * @returns Une liste d'objets Story.
+ */
 export async function getFavoriteStories(userId: string): Promise<Story[]> {
   try {
     const userRef = doc(db, "users", userId);
@@ -552,17 +702,20 @@ export async function getFavoriteStories(userId: string): Promise<Story[]> {
     }
     
     const userData = userSnap.data();
+    // On récupère le tableau des IDs des histoires favorites.
     const favoriteIds = userData.favorites || [];
     
     if (favoriteIds.length === 0) {
       return [];
     }
     
-    // Fetch all favorite stories
+    // Pour chaque ID, on va chercher les détails complets de l'histoire.
+    // Note : Cela peut être inefficace si un utilisateur a des milliers de favoris,
+    // car cela fait une lecture de base de données par favori.
     const favoriteStories: Story[] = [];
     for (const storyId of favoriteIds) {
-      const story = await getStory(storyId);
-      if (story) {
+      const story = await getStory(storyId); // On réutilise la fonction getStory !
+      if (story) { // On vérifie que l'histoire existe toujours.
         favoriteStories.push(story);
       }
     }
@@ -574,6 +727,13 @@ export async function getFavoriteStories(userId: string): Promise<Story[]> {
   }
 }
 
+/**
+ * Vérifie si une histoire spécifique est dans les favoris d'un utilisateur.
+ * C'est plus rapide que `getFavoriteStories` si on veut juste savoir "oui" ou "non".
+ * @param userId - L'ID de l'utilisateur.
+ * @param storyId - L'ID de l'histoire à vérifier.
+ * @returns true si l'histoire est en favori, sinon false.
+ */
 export async function isStoryFavorited(userId: string, storyId: string): Promise<boolean> {
   try {
     const userRef = doc(db, "users", userId);
@@ -586,6 +746,7 @@ export async function isStoryFavorited(userId: string, storyId: string): Promise
     const userData = userSnap.data();
     const favorites = userData.favorites || [];
     
+    // On vérifie simplement si l'ID de l'histoire est présent dans le tableau des favoris.
     return favorites.includes(storyId);
   } catch (error) {
     console.error("Error checking if story is favorited: ", error);
@@ -593,6 +754,11 @@ export async function isStoryFavorited(userId: string, storyId: string): Promise
   }
 }
 
+/**
+ * Ajoute ou retire une histoire de la liste "À lire plus tard" d'un utilisateur.
+ * @param userId - L'ID de l'utilisateur.
+ * @param storyId - L'ID de l'histoire.
+ */
 export async function toggleReadLater(userId: string, storyId: string): Promise<void> {
   try {
     const userRef = doc(db, "users", userId);
@@ -607,10 +773,10 @@ export async function toggleReadLater(userId: string, storyId: string): Promise<
     
     let updatedReadLater: string[];
     if (currentReadLater.includes(storyId)) {
-      // Remove from read later
+      // Si l'histoire y est déjà, on la retire.
       updatedReadLater = currentReadLater.filter((id: string) => id !== storyId);
     } else {
-      // Add to read later
+      // Sinon, on l'ajoute.
       updatedReadLater = [...currentReadLater, storyId];
     }
     
@@ -621,6 +787,11 @@ export async function toggleReadLater(userId: string, storyId: string): Promise<
   }
 }
 
+/**
+ * Récupère la liste complète des histoires que l'utilisateur a marquées "À lire plus tard".
+ * @param userId - L'ID de l'utilisateur.
+ * @returns Une liste d'objets Story.
+ */
 export async function getReadLaterStories(userId: string): Promise<Story[]> {
   try {
     const userRef = doc(db, "users", userId);
@@ -637,7 +808,7 @@ export async function getReadLaterStories(userId: string): Promise<Story[]> {
       return [];
     }
     
-    // Fetch all read later stories
+    // Comme pour les favoris, on récupère les détails de chaque histoire une par une.
     const readLaterStories: Story[] = [];
     for (const storyId of readLaterIds) {
       const story = await getStory(storyId);
@@ -653,6 +824,12 @@ export async function getReadLaterStories(userId: string): Promise<Story[]> {
   }
 }
 
+/**
+ * Vérifie si une histoire est dans la liste "À lire plus tard" d'un utilisateur.
+ * @param userId - L'ID de l'utilisateur.
+ * @param storyId - L'ID de l'histoire.
+ * @returns true si l'histoire est dans la liste, sinon false.
+ */
 export async function isStoryInReadLater(userId: string, storyId: string): Promise<boolean> {
   try {
     const userRef = doc(db, "users", userId);
@@ -672,9 +849,15 @@ export async function isStoryInReadLater(userId: string, storyId: string): Promi
   }
 }
 
+/**
+ * Marque une histoire comme "supprimée" sans la supprimer réellement de la base de données.
+ * C'est une "suppression douce" (soft delete). Cela permet de la restaurer plus tard.
+ * @param id - L'ID de l'histoire à marquer.
+ */
 export async function softDeleteStory(id: string): Promise<void> {
   try {
     const docRef = doc(db, "stories", id);
+    // On met simplement à jour le document avec un drapeau `deleted: true` et la date de suppression.
     await updateDoc(docRef, {
       deleted: true,
       deletedAt: Timestamp.now().toMillis().toString()
@@ -685,12 +868,17 @@ export async function softDeleteStory(id: string): Promise<void> {
   }
 }
 
+/**
+ * Restaure une histoire qui a été supprimée "doucement".
+ * @param id - L'ID de l'histoire à restaurer.
+ */
 export async function restoreStory(id: string): Promise<void> {
   try {
     const docRef = doc(db, "stories", id);
+    // On inverse simplement l'opération de `softDeleteStory`.
     await updateDoc(docRef, {
       deleted: false,
-      deletedAt: null
+      deletedAt: null // On efface la date de suppression.
     });
   } catch (error) {
     console.error("Error restoring story: ", error);
@@ -698,26 +886,30 @@ export async function restoreStory(id: string): Promise<void> {
   }
 }
 
+/**
+ * Récupère la liste des histoires d'un utilisateur qui ont été marquées comme supprimées.
+ * @param userId - L'ID de l'auteur.
+ * @returns Une liste d'histoires supprimées.
+ */
 export async function getDeletedStories(userId: string): Promise<UserStory[]> {
   try {
-    console.log(`[firestore.ts] getDeletedStories called with userId: ${userId}`);
     const storiesRef = collection(db, 'stories');
+    // On récupère d'abord toutes les histoires de l'auteur.
+    // Note : Il serait plus efficace d'avoir une requête `where('deleted', '==', true)`
+    // mais cela peut nécessiter un index composite dans Firestore. Le filtrage côté client est une alternative plus simple.
     const q = query(storiesRef, where('authorId', '==', userId));
     
     const snapshot = await getDocs(q);
     const deletedStories: UserStory[] = [];
     
-    console.log(`[firestore.ts] Found ${snapshot.size} total stories, filtering for deleted ones`);
-    
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data() as DocumentData;
       
-      // Filtrer côté client pour les histoires supprimées
+      // On filtre ici pour ne garder que celles avec `deleted: true`.
       if (data.deleted !== true) {
         continue;
       }
       
-      console.log(`[firestore.ts] Processing deleted story: ${docSnap.id}, title: ${data.title}`);
       const commentCount = await getCommentCountForStory(docSnap.id);
       const { average: averageRating } = await getAverageRating(docSnap.id);
 
@@ -731,7 +923,6 @@ export async function getDeletedStories(userId: string): Promise<UserStory[]> {
       });
     }
     
-    console.log(`[firestore.ts] Returning ${deletedStories.length} deleted stories`);
     return deletedStories;
   } catch (error) {
     console.error("Error getting deleted stories:", error);
@@ -739,18 +930,26 @@ export async function getDeletedStories(userId: string): Promise<UserStory[]> {
   }
 }
 
+/**
+ * Supprime définitivement les histoires qui ont été "soft-deleted" depuis plus de 30 jours.
+ * C'est une fonction de maintenance qui pourrait être exécutée périodiquement (par exemple, via une Cloud Function).
+ */
 export async function purgeOldStories(): Promise<void> {
   try {
+    // On calcule le timestamp d'il y a 30 jours.
     const threshold = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const storiesRef = collection(db, 'stories');
+    // On requête les histoires qui sont marquées comme supprimées ET dont la date de suppression est antérieure au seuil.
     const q = query(
-      storiesRef, 
+      storiesRef,
       where('deleted', '==', true),
       where('deletedAt', '<', threshold.toString())
     );
     
     const snapshot = await getDocs(q);
+    // On prépare une promesse de suppression pour chaque histoire trouvée.
     const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    // On exécute toutes les suppressions en parallèle pour plus d'efficacité.
     await Promise.all(deletePromises);
     
     console.log(`Purged ${snapshot.size} old stories`);
@@ -760,16 +959,24 @@ export async function purgeOldStories(): Promise<void> {
   }
 }
 
+/**
+ * Récupère une liste d'histoires que l'utilisateur a lues récemment pour lui proposer de "Continuer la lecture".
+ * @param userId - L'ID de l'utilisateur.
+ * @param count - Le nombre d'histoires à suggérer.
+ * @returns Une liste d'objets Story.
+ */
 export async function getContinueReadingStories(userId: string, count: number = 5): Promise<Story[]> {
   try {
+    // On requête la collection `readingProgress` qui stocke quand un utilisateur a lu une histoire pour la dernière fois.
     const readingProgressQuery = query(
       collection(db, "readingProgress"),
       where("userId", "==", userId),
-      orderBy("lastReadDate", "desc"),
+      orderBy("lastReadDate", "desc"), // On trie par date pour avoir les plus récentes en premier.
       limit(count)
     );
 
     const progressSnapshot = await getDocs(readingProgressQuery);
+    // On extrait les IDs des histoires de ces enregistrements de progression.
     const storyIds = progressSnapshot.docs.map(doc => (doc.data() as ReadingProgress).storyId);
 
     if (storyIds.length === 0) {
@@ -779,7 +986,7 @@ export async function getContinueReadingStories(userId: string, count: number = 
     const stories: Story[] = [];
     for (const storyId of storyIds) {
       const story = await getStory(storyId);
-      // Vérifier que l'histoire existe et que l'auteur n'est pas l'utilisateur actuel
+      // On vérifie que l'histoire existe et que l'utilisateur n'est pas l'auteur (on ne veut pas lui suggérer ses propres histoires).
       if (story && story.authorId !== userId) {
         stories.push(story);
       }
@@ -791,13 +998,17 @@ export async function getContinueReadingStories(userId: string, count: number = 
   }
 }
 
+/**
+ * Récupère les histoires les plus populaires, basées sur le nombre de lectures (`readCount`).
+ * @param count - Le nombre d'histoires à récupérer.
+ * @returns Une liste d'objets Story.
+ */
 export async function getPopularStories(count: number = 10): Promise<Story[]> {
   try {
-
-
+    // On requête les histoires publiées, triées par le champ `readCount` en ordre décroissant.
     const storiesQuery = query(
       collection(db, "stories"),
-      where("status", "==", "published"), // Uniquement les histoires publiées
+      where("status", "==", "published"), // On ne veut que les histoires visibles par tous.
       orderBy("readCount", "desc"),
       limit(count)
     );
@@ -805,6 +1016,7 @@ export async function getPopularStories(count: number = 10): Promise<Story[]> {
     const querySnapshot = await getDocs(storiesQuery);
     const stories: Story[] = [];
 
+    // La logique de formatage est la même que dans `getStories`.
     querySnapshot.forEach((doc) => {
       const data = doc.data() as DocumentData;
       let chapters = data.chapters || [];
@@ -845,18 +1057,28 @@ export async function getPopularStories(count: number = 10): Promise<Story[]> {
   }
 }
 
-// Fonction pour mettre à jour le readCount et enregistrer la progression de lecture
+/**
+ * Enregistre le fait qu'un utilisateur a lu une histoire.
+ * Met à jour deux choses :
+ * 1. La progression de lecture de l'utilisateur (pour la section "Continuer la lecture").
+ * 2. Le compteur de lectures de l'histoire (pour la popularité).
+ * @param userId - L'ID de l'utilisateur qui lit.
+ * @param storyId - L'ID de l'histoire lue.
+ */
 export async function recordStoryRead(userId: string, storyId: string): Promise<void> {
   try {
-    // Mettre à jour la progression de lecture
-    const readingProgressRef = doc(db, "readingProgress", `${userId}_${storyId}`); // Utiliser un ID composite
+    // On met à jour (ou crée) un document dans `readingProgress` pour marquer que cet utilisateur a lu cette histoire à cet instant.
+    // L'ID composite `${userId}_${storyId}` garantit un enregistrement unique par utilisateur et par histoire.
+    const readingProgressRef = doc(db, "readingProgress", `${userId}_${storyId}`);
     await setDoc(readingProgressRef, {
       userId,
       storyId,
       lastReadDate: Timestamp.now().toMillis().toString(),
-    }, { merge: true });
+    }, { merge: true }); // `merge: true` évite d'écraser d'autres champs si le document existait déjà.
 
-    // Incrémenter le readCount de l'histoire
+    // On incrémente le compteur de lectures de l'histoire.
+    // Note : Cette opération n'est pas atomique. Pour une application à très grande échelle,
+    // on utiliserait `increment()` de Firestore pour garantir que le compteur est toujours juste, même avec des lectures simultanées.
     const storyRef = doc(db, "stories", storyId);
     const storySnap = await getDoc(storyRef);
 
@@ -871,6 +1093,5 @@ export async function recordStoryRead(userId: string, storyId: string): Promise<
 
   } catch (error) {
     console.error(`Error recording story read for story ${storyId} by user ${userId}: `, error);
-
   }
 }
