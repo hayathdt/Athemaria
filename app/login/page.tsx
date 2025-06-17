@@ -11,15 +11,28 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// Définit le composant de la page de connexion.
+// Utilisation du hook "useState" pour gérer l'état des champs du formulaire (email, mot de passe),
+  // ainsi que l'état d'erreur et de chargement.
+// C'est ici que les utilisateurs existants peuvent se connecter à leur compte.
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+// On récupère la fonction "login" de notre contexte d'authentification.
+  // Le routeur de Next.js nous permettra de rediriger l'utilisateur après la connexion.
   const [password, setPassword] = useState("");
+// Cette fonction asynchrone gère la soumission du formulaire de connexion.
   const [error, setError] = useState("");
+// On empêche le rechargement de la page.
+    // On s'assure qu'il n'y a pas de message d'erreur affiché et on montre un indicateur de chargement.
   const [isLoading, setIsLoading] = useState(false);
 
+// On tente de connecter l'utilisateur avec l'email et le mot de passe fournis.
+      // Si la connexion est réussie, l'utilisateur est redirigé vers la page d'accueil.
   const { login } = useAuth();
   const router = useRouter();
+// En cas d'échec (par exemple, mot de passe incorrect), on capture l'erreur et on met à jour l'état "error" pour l'afficher.
 
+// Quoi qu'il arrive, on désactive l'indicateur de chargement à la fin du processus.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");

@@ -11,16 +11,31 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// Définit le composant de la page d'inscription.
+// Utilisation du hook "useState" de React pour gérer l'état du formulaire.
+  // Chaque "useState" crée une variable d'état et une fonction pour la mettre à jour.
+// C'est ici que les nouveaux utilisateurs peuvent créer un compte.
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+// "useAuth" est un hook personnalisé qui nous donne accès aux fonctions d'authentification (comme signup).
+  // "useRouter" est un hook de Next.js pour la navigation entre les pages.
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState("");
+// Cette fonction est appelée lorsque l'utilisateur soumet le formulaire.
+// e.preventDefault() empêche le rechargement de la page, comportement par défaut des formulaires.
+    // On réinitialise les erreurs et on active l'indicateur de chargement.
   const [isLoading, setIsLoading] = useState(false);
 
   const { signup } = useAuth();
+// On essaie de créer un compte avec l'email, le mot de passe et le nom d'utilisateur.
+      // La fonction "signup" vient de notre "auth-context".
+      // Si la création réussit, on redirige l'utilisateur vers la page d'accueil.
   const router = useRouter();
+// Si une erreur se produit (par exemple, email déjà utilisé), on l'affiche à l'utilisateur.
 
+// Le bloc "finally" s'exécute toujours, que la création ait réussi ou échoué.
+      // On désactive l'indicateur de chargement pour que l'utilisateur puisse interagir à nouveau.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");

@@ -20,16 +20,25 @@ import UserStoryCard from "@/components/cards/user-story-card";
 import PageHeader from "@/components/layout/page-header";
 
 export default function ProfilePage() {
+  // On récupère l'utilisateur actuellement connecté grâce au contexte d'authentification.
   const { user } = useAuth();
+  // Hook pour afficher des notifications (toasts) à l'utilisateur.
   const { toast } = useToast();
+  // "State" pour stocker les informations du profil de l'utilisateur une fois chargées.
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  // "State" pour savoir si l'utilisateur est en train de modifier son profil.
   const [isEditing, setIsEditing] = useState(false);
+  // "State" pour gérer l'affichage d'un indicateur de chargement pendant que les données sont récupérées.
   const [loading, setLoading] = useState(true);
+  // "State" pour désactiver le bouton de sauvegarde pendant l'enregistrement des données.
   const [isSaving, setIsSaving] = useState(false);
+  // "State" pour gérer l'onglet actif ('profile' ou 'stories').
   const [activeTab, setActiveTab] = useState<'profile' | 'stories'>('profile');
-  const [userStories, setUserStories] = useState<UserStory[]>([]); 
-  const [currentPage, setCurrentPage] = useState(1); 
-  const [storiesPerPage] = useState(6); 
+  // "State" pour stocker la liste des histoires écrites par l'utilisateur.
+  const [userStories, setUserStories] = useState<UserStory[]>([]);
+  // "States" pour la pagination de la liste des histoires.
+  const [currentPage, setCurrentPage] = useState(1);
+  const [storiesPerPage] = useState(6);
 
   // États pour l'upload d'avatar
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
@@ -45,12 +54,18 @@ export default function ProfilePage() {
     website: "",
   });
 
+  // Ce "useEffect" s'exécute une seule fois au chargement du composant ou si l'utilisateur change.
+  // Son rôle est de charger les données du profil de l'utilisateur depuis la base de données (Firestore).
   useEffect(() => {
     const loadProfile = async () => {
+      // On vérifie si un utilisateur est bien connecté.
       if (user) {
+        // On récupère le profil utilisateur avec son identifiant unique (uid).
         const userProfile = await getUserProfile(user.uid);
+        // Si un profil existe, on met à jour les "states" du composant.
         if (userProfile) {
-          setProfile(userProfile);
+          setProfile(userProfile); // Stocke les données du profil pour l'affichage.
+          // Pré-remplit le formulaire d'édition avec les données existantes.
           setFormData({
             displayName: userProfile.displayName,
             bio: userProfile.bio || "",
@@ -61,21 +76,26 @@ export default function ProfilePage() {
           });
         }
       }
+      // Une fois le chargement terminé (même si aucun profil n'a été trouvé), on cache l'indicateur de chargement.
       setLoading(false);
     };
     loadProfile();
-  }, [user]);
+  }, [user]); // La dépendance [user] signifie que ce code se ré-exécutera si l'objet 'user' change.
 
+  // Ce "useEffect" s'exécute lorsque l'utilisateur change ou lorsqu'il clique sur l'onglet "My Stories".
   useEffect(() => {
     const loadUserStories = async () => {
       console.log(`[ProfilePage] loadUserStories called. user: ${user?.uid}, activeTab: ${activeTab}`);
+      // On charge les histoires uniquement si l'utilisateur est connecté ET que l'onglet "stories" est actif.
       if (user && activeTab === 'stories') {
-        setLoading(true);
+        setLoading(true); // Affiche l'indicateur de chargement.
         try {
+          // Appelle la fonction pour récupérer les histoires de l'utilisateur depuis Firestore.
           const stories = await getUserStories(user.uid);
           console.log("[ProfilePage] Fetched stories:", stories);
-          setUserStories(stories);
+          setUserStories(stories); // Met à jour le "state" avec les histoires récupérées.
         } catch (error) {
+          // En cas d'erreur, on affiche un message à l'utilisateur.
           console.error("Error loading user stories:", error);
           toast({
             title: "Error",
@@ -83,14 +103,17 @@ export default function ProfilePage() {
             variant: "destructive",
           });
         } finally {
+          // Dans tous les cas (succès ou erreur), on cache l'indicateur de chargement.
           setLoading(false);
         }
       }
     };
 
     loadUserStories();
-  }, [user, activeTab, toast]);
+  }, [user, activeTab, toast]); // Dépendances: se ré-exécute si l'une de ces valeurs change.
 
+  // Pendant que `loading` est vrai, on affiche un simple message de chargement
+  // au lieu du contenu complet de la page. C'est une pratique courante pour améliorer l'expérience utilisateur.
   if (loading) {
     return (
       <div className="container mx-auto p-4">
@@ -99,12 +122,14 @@ export default function ProfilePage() {
     );
   }
 
+  // Cette fonction est appelée lorsque l'utilisateur soumet le formulaire de modification de profil.
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
+    e.preventDefault(); // Empêche la page de se recharger, comportement par défaut des formulaires.
+    if (!user) return; // Sécurité : on s'assure que l'utilisateur est toujours connecté.
 
-    setIsSaving(true);
+    setIsSaving(true); // On indique que la sauvegarde est en cours (pour le feedback visuel, ex: "Saving...").
     try {
+      // On rassemble les données du formulaire dans un objet `profileData` qui correspond au type `UserProfile`.
       const profileData: UserProfile = {
         id: user.uid,
         displayName: formData.displayName || user.displayName || "User",
@@ -119,20 +144,26 @@ export default function ProfilePage() {
         website: formData.website,
       };
 
+      // On essaie de mettre à jour le profil.
       try {
         await updateUserProfile(user.uid, profileData);
       } catch (error) {
+        // Si la mise à jour échoue (par exemple, le document n'existe pas encore pour un nouvel utilisateur),
+        // on essaie de créer le profil.
         await createUserProfile(user.uid, profileData);
       }
 
+      // Après la sauvegarde, on recharge le profil pour afficher les données à jour.
       const newProfile = await getUserProfile(user.uid);
       setProfile(newProfile);
-      setIsEditing(false);
+      setIsEditing(false); // On quitte le mode édition.
+      // On notifie l'utilisateur que tout s'est bien passé.
       toast({
         title: "Success",
         description: "Your profile has been updated",
       });
     } catch (error) {
+      // En cas d'erreur lors de la sauvegarde, on affiche un message d'erreur.
       console.error("Error updating profile:", error);
       toast({
         title: "Error",
@@ -140,52 +171,58 @@ export default function ProfilePage() {
         variant: "destructive",
       });
     } finally {
+      // Qu'il y ait eu succès ou erreur, on termine l'état de sauvegarde.
       setIsSaving(false);
     }
   };
 
+  // Cette fonction est appelée à chaque fois que l'utilisateur tape quelque chose dans un champ du formulaire.
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value } = e.target;
+    const { name, value } = e.target; // On récupère le nom et la valeur du champ modifié.
+    // On met à jour le "state" `formData` avec la nouvelle valeur.
     setFormData((prev) => ({
-      ...prev,
-      [name]: value,
+      ...prev, // On garde toutes les anciennes valeurs...
+      [name]: value, // ...et on met à jour seulement celle qui a changé.
     }));
   };
 
+  // Gère la logique de téléversement d'un nouvel avatar.
   const handleAvatarUpload = async (file: File) => {
     if (!user || !profile) return;
 
     setIsUploadingAvatar(true);
     try {
-      // Uploader la nouvelle image
+      // 1. On envoie le nouveau fichier image vers Firebase Storage. La fonction retourne l'URL publique de l'image.
       const newAvatarUrl = await uploadAvatar(file, user.uid);
 
-      // Supprimer l'ancienne image si elle existe et n'est pas le placeholder par défaut
+      // 2. Pour ne pas stocker d'images inutiles, on supprime l'ancien avatar.
+      // On vérifie qu'il y a un ancien avatar, qu'il ne s'agit pas de l'image par défaut, et qu'il vient bien de Firebase.
       if (profile.avatar && profile.avatar !== "/placeholder-user.jpg" && profile.avatar.includes("firebasestorage.googleapis.com")) {
         try {
+          // L'URL de Firebase est complexe. On doit en extraire le chemin du fichier pour pouvoir le supprimer.
           const url = new URL(profile.avatar);
-          const pathName = url.pathname; 
+          const pathName = url.pathname;
           const encodedPath = pathName.substring(pathName.indexOf('/o/') + 3);
-          // Décode le chemin pour obtenir le chemin réel dans storage
+          // Le chemin dans l'URL est "encodé" (ex: les espaces sont remplacés par %20), on le décode.
           const decodedPath = decodeURIComponent(encodedPath);
           
-          // Vérifie que le chemin décodé est valide et ne correspond pas à un placeholder générique
+          // On supprime le fichier en utilisant le chemin décodé.
           if (decodedPath && !decodedPath.includes("placeholders/")) {
             await deleteFile(decodedPath);
           }
         } catch (error) {
           console.error("Failed to delete old avatar:", error);
-          // Ne pas bloquer la mise à jour si la suppression échoue
+          // Si la suppression échoue, ce n'est pas grave, on continue la mise à jour du profil.
         }
       }
 
-      // Mettre à jour le profil dans Firestore
+      // 3. On met à jour le document de l'utilisateur dans Firestore avec l'URL du nouvel avatar.
       const updatedProfileData = { ...profile, avatar: newAvatarUrl };
       await updateUserProfile(user.uid, updatedProfileData);
       
-      // Mettre à jour l'état local du profil
+      // 4. On met à jour le "state" local pour que l'interface affiche immédiatement le nouvel avatar.
       setProfile(updatedProfileData);
       
       toast({
@@ -200,10 +237,11 @@ export default function ProfilePage() {
         variant: "destructive",
       });
     } finally {
+      // 5. On réinitialise les "states" liés au téléversement.
       setIsUploadingAvatar(false);
       setSelectedAvatarFile(null);
       setAvatarPreview(null);
-      // S'assurer que l'input file est réinitialisé pour permettre de re-sélectionner le même fichier
+      // On réinitialise le champ <input type="file"> pour que l'utilisateur puisse sélectionner le même fichier à nouveau si besoin.
       const avatarUploadInput = document.getElementById('avatarUpload') as HTMLInputElement;
       if (avatarUploadInput) {
         avatarUploadInput.value = "";
@@ -211,9 +249,13 @@ export default function ProfilePage() {
     }
   };
 
+  // Logique de pagination pour l'onglet "My Stories".
+  // On calcule quelles histoires afficher sur la page actuelle.
   const indexOfLastStory = currentPage * storiesPerPage;
   const indexOfFirstStory = indexOfLastStory - storiesPerPage;
+  // On extrait la tranche d'histoires correspondant à la page actuelle.
   const currentStories = userStories.slice(indexOfFirstStory, indexOfLastStory);
+  // On calcule le nombre total de pages nécessaires.
   const totalPages = Math.ceil(userStories.length / storiesPerPage);
 
   return (
@@ -295,7 +337,9 @@ export default function ProfilePage() {
                 <TabsTrigger value="stories">My Stories</TabsTrigger>
               </TabsList>
               <TabsContent value="profile">
+                {/* Affichage conditionnel : on affiche soit le formulaire d'édition, soit les informations du profil. */}
                 {isEditing ? (
+                  // Si `isEditing` est vrai, on affiche le formulaire.
                   <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="rounded-2xl bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl p-4 space-y-2">
                       <label className="block text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -394,6 +438,7 @@ export default function ProfilePage() {
                     </div>
                   </form>
                 ) : (
+                  // Si `isEditing` est faux, on affiche les informations du profil en mode "lecture seule".
                   <div className="space-y-6">
                     <div className="text-center my-6">
                       <p className="text-gray-700 dark:text-gray-300 max-w-lg mx-auto" style={{ maxWidth: '120ch' }}>
